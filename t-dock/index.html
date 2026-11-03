@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>T-DOCK Drone Docks</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: same bench layout as the other OASA viewers — 3D stage left, spec panel right; stacks on phones */
+:root {
+  --bg: #eef1f3; --panel: #ffffff; --fg: #1b232b; --muted: #5c6873; --line: #d5dce2;
+  --accent: #d2611c; --accent-soft: #fbe7da; --stage: #e3e8ec; --grid: #b9c3cb; --ok: #2f8a4f;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12171c; --panel: #192027; --fg: #e4e9ee; --muted: #93a0ac; --line: #2a343e;
+  --accent: #f08a4b; --accent-soft: #3a2518; --stage: #0f1418; --grid: #33404b; --ok: #5cc07f; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12171c; --panel: #192027; --fg: #e4e9ee; --muted: #93a0ac; --line: #2a343e;
+  --accent: #f08a4b; --accent-soft: #3a2518; --stage: #0f1418; --grid: #33404b; --ok: #5cc07f; color-scheme: dark }
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--fg); font-family: var(--display); }
+.app { display: grid; grid-template-columns: minmax(0, 1fr) 350px; gap: 16px; height: 100%;
+  padding-block: 16px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.stage { position: relative; background: var(--stage); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; min-height: 360px; touch-action: none; }
+.stage canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+.stage canvas:active { cursor: grabbing; }
+.hud { position: absolute; left: 12px; top: 12px; right: 12px; display: flex; justify-content: space-between; gap: 8px; pointer-events: none; flex-wrap: wrap; }
+.tag { font: 600 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); background: var(--panel); border: 1px solid var(--line); padding: 6px 8px; border-radius: 3px; }
+.tag b { color: var(--accent); font-weight: 600; }
+.status { position: absolute; left: 12px; bottom: 34px; display: flex; gap: 8px; align-items: center; pointer-events: none; flex-wrap: wrap; }
+.status .tag { color: var(--fg); }
+.status .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-right: 6px; vertical-align: -1px; }
+.status .dot.ok { background: var(--ok); }
+.meter { width: 70px; height: 8px; border: 1px solid var(--line); background: var(--panel); border-radius: 2px; display: inline-block; vertical-align: -1px; margin-left: 6px; overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--ok); }
+.hint { position: absolute; left: 12px; bottom: 12px; font: 11px/1.4 var(--mono); color: var(--muted); pointer-events: none; }
+.side { display: flex; flex-direction: column; gap: 14px; min-width: 0; overflow-y: auto; }
+.back { font: 600 12px/1 var(--mono); color: var(--accent); text-decoration: none; }
+.back:hover { text-decoration: underline; }
+h1 { font-size: 22px; font-weight: 800; margin: 0; letter-spacing: -.01em; text-wrap: balance; }
+.sub { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 4px 0 0; }
+.label { font: 600 10.5px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+.btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.btns button { font: 600 12.5px/1 var(--display); color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 8px 10px; cursor: pointer; }
+.btns button[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.btns button small { font: 600 10px/1 var(--mono); opacity: .65; margin-left: 4px; }
+button:focus-visible, input:focus-visible, li:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.row { display: flex; align-items: center; gap: 10px; font-size: 13px; flex-wrap: wrap; }
+.row input[type=range] { flex: 1; accent-color: var(--accent); }
+.row label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.info { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 12px 14px; }
+.info h2 { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
+.info p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.info .nodes { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { font: 600 11px/1 var(--mono); padding: 4px 6px; border-radius: 3px; background: var(--accent-soft); color: var(--accent); }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.stats div { font: 11px/1.3 var(--mono); color: var(--muted); }
+.stats b { display: block; font: 600 14px/1.2 var(--mono); color: var(--fg); font-variant-numeric: tabular-nums; }
+ul.parts { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+ul.parts li { display: flex; align-items: center; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--line); font-size: 13px; cursor: pointer; }
+ul.parts li:hover { background: var(--panel); }
+ul.parts li[aria-selected="true"] { background: var(--accent-soft); }
+.sw { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+ul.parts .grp { margin-left: auto; font: 10.5px/1 var(--mono); color: var(--muted); }
+.note { font-size: 12px; color: var(--muted); line-height: 1.5; margin: 0; }
+@media (max-width: 760px) {
+  .app { grid-template-columns: 1fr; height: auto; }
+  .stage { height: 62vh; }
+  .side { overflow: visible; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="stage" id="stage">
+    <div class="hud">
+      <span class="tag">T-DOCK · <b id="hudType">Field dock</b></span>
+      <span class="tag" id="hudScale">Grid 20 cm · concept only</span>
+    </div>
+    <div class="status"><span class="tag"><span class="dot" id="dot"></span><span id="phase">Ready</span></span><span class="tag">Drone battery <span id="pct">100%</span><span class="meter"><i id="bar" style="width:100%"></i></span></span></div>
+    <div class="hint">Drag to rotate · scroll or pinch to zoom · tap a part</div>
+  </div>
+
+  <aside class="side">
+    <a class="back" href="../">← All OASA mockups</a>
+    <div>
+      <h1>T-DOCK drone docks</h1>
+      <p class="sub">Docks that let drones fly, land and recharge with no one there. Precision landing (T-DOCK1), auto charging to the OASA-DOCK standard (T-DOCK2) and landing on a moving deck (T-DOCK3), shown in four forms. Block shapes only; sizes are rough guesses.</p>
+    </div>
+
+    <div>
+      <p class="label">Dock type</p>
+      <div class="btns" id="types"></div>
+    </div>
+
+    <div>
+      <p class="label">View</p>
+      <div class="row"><label><input type="checkbox" id="run" checked> Run the cycle</label><label><input type="checkbox" id="spin"> Turntable</label></div>
+      <div class="row" style="margin-top:10px"><span>Assembled</span><input id="explode" type="range" min="0" max="1" step="0.01" value="0" aria-label="Exploded view"><span>Exploded</span></div>
+    </div>
+
+    <div class="info" id="info"></div>
+
+    <div>
+      <p class="label">Parts</p>
+      <ul class="parts" id="parts" role="listbox" aria-label="Parts"></ul>
+    </div>
+
+    <p class="note">The cycle is sped up: the roof opens, the drone takes off for a survey flight, comes back, lands slightly off-center, the bars push it to the contacts, the roof closes and it charges. The exploded view works best with the cycle stopped. Node IDs match the OASA tech tree.</p>
+  </aside>
+</div>
+
+<script src="../lib/three.min.js"></script>
+<script>
+(function () {
+  const stage = document.getElementById('stage');
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  stage.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(38, 1, 1, 8000);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 0.85));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.75); sun.position.set(300, 600, 360); scene.add(sun);
+  const fill = new THREE.DirectionalLight(0xffffff, 0.3); fill.position.set(-360, 150, -300); scene.add(fill);
+  let grid;
+  function applyTheme() {
+    renderer.setClearColor(new THREE.Color(css('--stage')));
+    if (grid) scene.remove(grid);
+    grid = new THREE.GridHelper(1200, 60, new THREE.Color(css('--grid')), new THREE.Color(css('--grid')));
+    grid.material.transparent = true; grid.material.opacity = 0.55; grid.position.y = -0.05; grid.visible = cur !== 'buoy'; scene.add(grid);
+  }
+
+  const M = (color, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.6, metalness: 0.1 }, o));
+  const COL = { shell: 0xd9dde1, shellDark: 0x58656f, roof: 0x9aa4ad, pad: 0x30363d, bar: 0xd2611c, contact: 0xc9a640, bat: 0x3c7dd9, low: 0xd62f2f,
+    motor: 0x262a2f, prop: 0xaab4bd, gnss: 0xe6e9ec, five: 0xd2611c, solar: 0x1f3557, buoy: 0xe8b923, water: 0x3f7fa8, trailer: 0x3a434c, frame: 0x6b747c };
+  const V = (x, y, z) => new THREE.Vector3(x, y, z);
+  const box = (g, w, h, d, mat, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); g.add(m); return m; };
+  const cyl = (g, r, h, mat, x = 0, y = 0, z = 0, seg = 24, r2) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r2 ?? r, h, seg), mat); m.position.set(x, y, z); g.add(m); return m; };
+  const ss = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  let parts = [];
+  function part(spec, build, parent) {
+    const g = new THREE.Group(); build(g);
+    const p = Object.assign({ obj: g, ex: spec.ex || V(0, 0, 0) }, spec);
+    g.traverse(m => { if (m.isMesh) m.userData.part = p; });
+    (parent || root).add(g); p.base = g.position.clone(); parts.push(p); return p;
+  }
+
+  // ---------- the drone (A-1 quad, ~1 m across) ----------
+  const props = [];
+  const batMat = M(COL.bat);
+  function makeDrone() {
+    const g = new THREE.Group();
+    box(g, 26, 8, 20, M(0x3a434c), 0, 11, 0); box(g, 16, 5, 9, batMat, -2, 17.5, 0); cyl(g, 4.5, 2, M(COL.gnss), -4, 23, 0, 24);
+    for (let i = 0; i < 4; i++) { const a = Math.PI / 4 + i * Math.PI / 2; const arm = box(g, 34, 2.4, 3, M(0x58656f), Math.cos(a) * 23, 12, Math.sin(a) * 23); arm.rotation.y = -a;
+      const x = Math.cos(a) * 40, z = Math.sin(a) * 40; cyl(g, 2.6, 4, M(COL.motor), x, 14, z, 16);
+      props.push(cyl(g, 19, .25, M(COL.prop, { transparent: true, opacity: .35 }), x, 16.4, z, 32)); props.push(box(g, 38, .3, 1.8, M(COL.motor), x, 16.5, z)); }
+    for (const z of [-11, 11]) { box(g, 34, 1.4, 1.4, M(COL.motor), 0, .7, z); for (const x of [-9, 9]) box(g, 1.2, 9, 1.2, M(COL.motor), x, 5, z * .8); }
+    box(g, 7, 6, 8, M(0x1f252b), 14, 6, 0);
+    return g;
+  }
+
+  // ---------- one field dock (OASA-DOCK). Returns handles the cycle animates ----------
+  function fieldDock(parent, o) {
+    const H = {}; const y0 = o.legs ? 20 : 0; const py = o.padY ?? 50;
+    const reg = o.register !== false;
+    const mk = (spec, build) => reg ? part(spec, build, parent).obj : (() => { const g = new THREE.Group(); build(g); parent.add(g); return g; })();
+    mk({ id: 'body', name: 'Weatherproof enclosure', group: 'Dock', color: COL.shell, nodes: ['T-DOCK2'],
+      desc: 'Insulated box with a heater and fan so the drone and batteries stay in a safe temperature range in heat, frost and rain. Service door on the side.', ex: V(0, 0, 0) },
+      g => { const m = M(COL.shell, { roughness: .5 });
+        box(g, 150, 4, 150, m, 0, y0 + 2, 0); box(g, 150, 86, 4, m, 0, y0 + 47, 73); box(g, 150, 86, 4, m, 0, y0 + 47, -73); box(g, 4, 86, 150, m, 73, y0 + 47, 0); box(g, 4, 86, 150, m, -73, y0 + 47, 0);
+        box(g, 1, 40, 50, M(COL.shellDark), 75.4, y0 + 30, 30);
+        if (o.legs) for (const x of [-66, 66]) for (const z of [-66, 66]) box(g, 8, 20, 8, M(COL.shellDark), x, 10, z);
+        H.led = M(COL.low, { emissive: 0x551111 }); box(g, 1, 4, 10, H.led, 75.6, y0 + 80, -40); });
+    mk({ id: 'battery', name: 'Charger and battery bank', group: 'Dock', color: COL.bat, nodes: ['T-DOCK2', 'R-PWR1'],
+      desc: 'Charger, power supply and a buffer battery under the pad. The dock keeps working through a power cut and can run off grid with solar.', ex: V(0, 0, 110) },
+      g => { box(g, 60, 24, 40, M(COL.bat), -20, y0 + 18, 0); box(g, 30, 20, 30, M(COL.shellDark), 35, y0 + 16, 0); });
+    H.pad = new THREE.Group(); H.pad.position.y = y0 + py;
+    const padP = mk({ id: 'pad', name: 'Landing pad and marker', group: 'Dock', color: COL.pad, nodes: ['T-DOCK1', 'R-NAV2'],
+      desc: 'Flat pad with a large visual marker. The drone flies to the dock on RTK GPS, then locks onto the marker for the last few metres and lands within a few centimetres.', ex: V(0, 50, 0) },
+      g => { g.add(H.pad); box(H.pad, 136, 4, 136, M(COL.pad), 0, -2, 0);
+        const w = M(0xf2f2f2), k = M(0x111111); box(H.pad, 70, .4, 70, w, 0, .2, 0);
+        const pat = [[1,1,1,1,1],[1,0,1,0,1],[1,1,0,1,1],[1,0,0,0,1],[1,1,1,1,1]];
+        pat.forEach((r, i) => r.forEach((c, j) => { if (c) box(H.pad, 12, .5, 12, k, -24 + j * 12, .45, -24 + i * 12); })); });
+    mk({ id: 'contacts', name: 'Charging contacts', group: 'Dock', color: COL.contact, nodes: ['T-DOCK2', 'R-PWR1'],
+      desc: 'Spring contacts on the pad meet plates on the drone\'s skids once it is centered. No plugs to line up, and nothing live until the dock confirms the drone.', ex: V(0, 60, 0) },
+      g => { H.contact = M(COL.contact, { metalness: .8, roughness: .3 }); for (const x of [-12, 12]) for (const z of [-11, 11]) box(g, 8, 1.2, 3, H.contact, x, y0 + py + .6, z); });
+    H.bars = [];
+    mk({ id: 'bars', name: 'Centering bars', group: 'Dock', color: COL.bar, nodes: ['T-DOCK2'],
+      desc: 'Four bars sweep in from the edges and push the drone onto the contacts, so the landing only has to be close, not perfect.', ex: V(0, 70, 0) },
+      g => { const m = M(COL.bar);
+        for (const s of [-1, 1]) { const a = box(g, 4, 4, 120, m, s * 60, y0 + py + 2, 0); H.bars.push({ m: a, axis: 'x', open: s * 60, shut: s * 20 });
+          const b = box(g, 120, 4, 4, m, 0, y0 + py + 2, s * 60); H.bars.push({ m: b, axis: 'z', open: s * 60, shut: s * 14 }); } });
+    H.roof = [];
+    mk({ id: 'roof', name: 'Clamshell roof', group: 'Dock', color: COL.roof, nodes: ['T-DOCK2'],
+      desc: 'Two roof halves hinge open for takeoff and landing and seal shut against rain, snow and dust. A wind check keeps them shut in a storm.', ex: V(0, 110, 0) },
+      g => { for (const s of [1, -1]) { const piv = new THREE.Group(); piv.position.set(0, y0 + 92, s * 75); g.add(piv);
+        box(piv, 152, 4, 76, M(COL.roof, { metalness: .4 }), 0, 0, -s * 38); box(piv, 152, 10, 3, M(COL.roof, { metalness: .4 }), 0, -5, -s * 75); H.roof.push({ piv, s }); } });
+    if (o.mast) mk({ id: 'mast', name: 'Weather, RTK and radio mast', group: 'Dock', color: COL.gnss, nodes: ['O-3', 'R-NAV2', 'R-COM5'],
+      desc: 'Wind and rain sensors decide go or no-go for each flight. The RTK base gives the drone centimetre positions, and the R-COM5 radio links the dock and drone to TAK and the mesh.', ex: V(-40, 60, -40) },
+      g => { const x = -82, z = -82; cyl(g, 1.6, 120, M(COL.frame, { metalness: .6 }), x, y0 + 60, z, 12);
+        cyl(g, 5, 2.4, M(COL.gnss), x, y0 + 121, z, 24);
+        box(g, 12, 7, 10, M(0x9aa4ad, { metalness: .5 }), x + 8, y0 + 80, z);
+        for (let i = 0; i < 3; i++) { const a = i * 2 * Math.PI / 3; box(g, .4, 5, 1.6, M(COL.five), x + 8 + 2.5 * Math.cos(a), y0 + 86, z + 2.5 * Math.sin(a)); }
+        H.anemo = new THREE.Group(); H.anemo.position.set(x, y0 + 108, z); g.add(H.anemo);
+        for (let i = 0; i < 3; i++) { const a = i * 2 * Math.PI / 3; const arm = box(H.anemo, 9, .6, .6, M(COL.frame), Math.cos(a) * 4.5, 0, Math.sin(a) * 4.5); arm.rotation.y = -a;
+          const c = new THREE.Mesh(new THREE.SphereGeometry(2, 10, 8, 0, Math.PI), M(COL.gnss)); c.position.set(Math.cos(a) * 9, 0, Math.sin(a) * 9); c.rotation.y = -a; H.anemo.add(c); } });
+    if (o.solar) mk({ id: 'solar', name: 'Solar panel (off-grid option)', group: 'Dock', color: COL.solar, nodes: ['R-PWR2'],
+      desc: 'Panel on its own stand so a dock can sit on a remote site with no grid power. Sized to recharge a few flights a day.', ex: V(-60, 0, 0) },
+      g => { const s = box(g, 90, 3, 130, M(COL.solar, { roughness: .3, metalness: .4 }), -170, 70, 0); s.rotation.z = .55; box(g, 4, 60, 4, M(COL.frame), -170, 30, -50); box(g, 4, 60, 4, M(COL.frame), -170, 30, 50); });
+    if (o.swap) mk({ id: 'swap', name: 'Battery swap arm', group: 'Dock', color: COL.bar, nodes: ['T-DOCK2'],
+      desc: 'A short arm reaches in from the side, pulls the flat battery and slides in a charged one. Turnaround drops from about an hour to a few minutes; the flat pack charges in a rack.', ex: V(60, 30, 0) },
+      g => { H.swap = new THREE.Group(); H.swap.position.set(70, y0 + 68, 0); g.add(H.swap);
+        box(g, 6, 30, 30, M(COL.shellDark), 69, y0 + 64, 0);
+        H.swapRod = box(H.swap, 60, 4, 6, M(COL.frame, { metalness: .6 }), -30, 0, 0); H.swapHead = box(H.swap, 8, 8, 12, M(COL.bar), -60, 0, 0);
+        for (let i = 0; i < 3; i++) box(g, 18, 6, 10, M(COL.bat), 45, y0 + 30 + i * 8, -40); });
+    return H;
+  }
+
+  // ---------- dock types ----------
+  const root = new THREE.Group(); scene.add(root);
+  const drone = makeDrone(); scene.add(drone);
+  const water = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000, 1, 1), M(COL.water, { transparent: true, opacity: .55, roughness: .2 })); water.rotation.x = -Math.PI / 2; water.visible = false; scene.add(water);
+  let H = {}, cur = 'field';
+  const types = {
+    field: { label: 'Field dock', node: 'T-DOCK2', radius: 560, target: V(0, 80, 0), charge: 'charge', nodes: ['T-DOCK1', 'T-DOCK2', 'O-3', 'R-NAV2'],
+      blurb: 'One drone, one box, left on a site. It opens, launches the drone, lands it again and recharges it, so surveys and patrols can run every day with no one there.',
+      stats: [['~60 min', 'turnaround'], ['1 drone', 'capacity'], ['grid or solar', 'power']],
+      build: () => { H = fieldDock(root, { legs: true, mast: true, solar: true }); } },
+    swap: { label: 'Battery swap dock', node: 'T-DOCK2', radius: 560, target: V(0, 80, 0), charge: 'swap', nodes: ['T-DOCK2', 'R-PWR1', 'O-4'],
+      blurb: 'The same dock with a swap arm and a rack of spare packs. The drone is back in the air in minutes, which matters for big sites, searches and anything that needs eyes up most of the day.',
+      stats: [['~3 min', 'turnaround'], ['3 spare packs', 'rack'], ['grid', 'power']],
+      build: () => { H = fieldDock(root, { legs: true, mast: true, swap: true }); } },
+    hive: { label: 'Mobile hive', node: 'O-6', radius: 1100, target: V(40, 60, 0), charge: 'charge', nodes: ['O-6', 'O-4', 'T-DOCK2'],
+      blurb: 'A trailer with three docks, its own power and a mast, towed to a disaster or a big job. Fleet management (O-4) keeps one drone up at a time while the others charge.',
+      stats: [['3 drones', 'capacity'], ['1 always up', 'coverage'], ['generator + battery', 'power']],
+      build: () => {
+        part({ id: 'trailer', name: 'Trailer', group: 'Hive', color: COL.trailer, nodes: ['O-6'], desc: 'Road-legal flatbed trailer with levelling jacks at each corner so the pads sit flat on rough ground.', ex: V(0, -40, 0) },
+          g => { const m = M(COL.trailer, { metalness: .4 }); box(g, 540, 10, 190, m, 0, 45, 0); box(g, 110, 8, 10, m, 320, 45, 0);
+            for (const x of [-60, 60]) for (const z of [-102, 102]) { const w = cyl(g, 32, 16, M(COL.motor, { roughness: .9 }), x, 32, z, 24); w.rotation.x = Math.PI / 2; }
+            for (const x of [-255, 255]) for (const z of [-88, 88]) box(g, 6, 40, 6, M(COL.frame), x, 20, z); });
+        part({ id: 'power', name: 'Power cabinet', group: 'Hive', color: COL.shellDark, nodes: ['O-6', 'R-PWR1'], desc: 'Quiet generator, battery bank and the network switch for the three docks.', ex: V(60, 0, 0) },
+          g => { box(g, 46, 90, 160, M(COL.shellDark), 290, 95, 0); });
+        part({ id: 'hivemast', name: 'Telescoping mast', group: 'Hive', color: COL.gnss, nodes: ['R-COM5', 'R-NAV2', 'T-NET2'], desc: 'Raises the R-COM5 radio, RTK base and weather sensors to about 6 m so the whole fleet keeps a link and the mesh reaches further.', ex: V(-40, 60, 0) },
+          g => { cyl(g, 3, 260, M(COL.frame, { metalness: .6 }), -262, 180, -90, 12); cyl(g, 6, 3, M(COL.gnss), -262, 312, -90, 24); box(g, 14, 8, 10, M(0x9aa4ad), -252, 290, -90); });
+        const mid = new THREE.Group(); mid.position.set(0, 50, 0); root.add(mid);
+        H = fieldDock(mid, { legs: false });
+        part({ id: 'others', name: 'Two more dock bays', group: 'Hive', color: COL.shell, nodes: ['T-DOCK2'], desc: 'Identical docks on either side, each with its own drone. They take turns flying.', ex: V(0, 40, 0) },
+          g => { for (const x of [-170, 170]) { const d = new THREE.Group(); d.position.set(x, 50, 0); g.add(d); fieldDock(d, { legs: false, register: false }); } });
+      } },
+    buoy: { label: 'Buoy dock', node: 'T-DOCK3', radius: 640, target: V(0, 40, 0), charge: 'charge', nodes: ['T-DOCK3', 'S-7', 'T-DOCK2'],
+      blurb: 'A floating dock for beaches and waterways. The pad is stabilized against the waves, and the drone predicts the motion and touches down in the calm moment between swells.',
+      stats: [['~60 min', 'turnaround'], ['wave-predicting', 'landing'], ['solar', 'power']],
+      build: () => {
+        const float = new THREE.Group(); root.add(float); H.float = float;
+        part({ id: 'hull', name: 'Float hull and keel', group: 'Buoy', color: COL.buoy, nodes: ['S-7'], desc: 'Wide, high-visibility float with a heavy keel below the waterline to keep it upright and slow its rolling. Moored to the seabed.', ex: V(0, -60, 0) },
+          g => { cyl(g, 110, 50, M(COL.buoy, { roughness: .5 }), 0, -5, 0, 40); cyl(g, 14, 80, M(COL.shellDark), 0, -70, 0, 16); cyl(g, 30, 20, M(COL.shellDark), 0, -115, 0, 20);
+            for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; const s = box(g, 40, 2, 24, M(COL.solar, { roughness: .3 }), Math.cos(a) * 92, 20, Math.sin(a) * 92); s.rotation.y = -a; } }, float);
+        part({ id: 'bbat', name: 'Battery and charger', group: 'Buoy', color: COL.bat, nodes: ['T-DOCK2', 'R-PWR2'], desc: 'Sealed battery and charger inside the float, topped up by the solar ring around the deck.', ex: V(0, 0, 160) },
+          g => { box(g, 60, 20, 40, M(COL.bat), 0, 0, 0); }, float);
+        const gim = new THREE.Group(); gim.position.y = 20; float.add(gim); H.gimbal = gim;
+        part({ id: 'gimbal', name: 'Stabilized pad mount', group: 'Buoy', color: COL.frame, nodes: ['T-DOCK3'], desc: 'Motorized gimbal under the pad that cancels most of the buoy\'s pitch and roll, so the pad stays close to level.', ex: V(0, 30, 0) },
+          g => { cyl(g, 20, 14, M(COL.frame, { metalness: .5 }), 0, 7, 0, 24); }, gim);
+        const top = new THREE.Group(); top.position.y = 14; gim.add(top);
+        const h2 = fieldDock(top, { legs: false, padY: 4 }); Object.assign(H, h2);
+        // hide the enclosure walls and roof on the buoy: a low rail instead
+        parts.filter(p => p.id === 'body' || p.id === 'roof' || (p.id === 'battery' && p.group === 'Dock')).forEach(p => { p.obj.visible = false; p.hidden = true; });
+        H.roof = [];
+        part({ id: 'rail', name: 'Low rail and net', group: 'Buoy', color: COL.bar, nodes: ['T-DOCK3', 'T-SAFE1'], desc: 'A low rail and net around the pad stop a drone sliding off in a gust or big wave. No roof here: the drone sits under a cover only between flights.', ex: V(0, 40, 0) },
+          g => { const m = M(COL.bar); for (const s of [-1, 1]) { box(g, 150, 3, 3, m, 0, 16, s * 75); box(g, 3, 3, 150, m, s * 75, 16, 0); }
+            for (const x of [-75, 75]) for (const z of [-75, 75]) box(g, 3, 14, 3, m, x, 9, z); }, top);
+        part({ id: 'bmast', name: 'Radio and RTK mast', group: 'Buoy', color: COL.gnss, nodes: ['R-COM5', 'R-NAV2', 'O-26'], desc: 'R-COM5 radio back to the lifeguard station and the mesh, an RTK antenna, and a flashing light for boats.', ex: V(-40, 60, 0) },
+          g => { cyl(g, 2, 120, M(COL.frame), -95, 80, -40, 12); cyl(g, 5, 3, M(COL.gnss), -95, 141, -40, 24); box(g, 12, 7, 10, M(0x9aa4ad), -87, 110, -40); cyl(g, 3, 6, M(COL.buoy, { emissive: 0x553300 }), -95, 146, -40, 12); }, float);
+      } }
+  };
+
+  // ---------- switching ----------
+  const typeBtns = document.getElementById('types');
+  Object.entries(types).forEach(([k, t]) => { const b = document.createElement('button'); b.dataset.k = k; b.innerHTML = `${t.label}<small>${t.node}</small>`; b.addEventListener('click', () => setType(k)); typeBtns.appendChild(b); });
+  function setType(k) {
+    cur = k; parts.forEach(p => p.obj.parent && p.obj.parent.remove(p.obj)); parts = []; H = {};
+    while (root.children.length) root.remove(root.children[0]);
+    types[k].build();
+    water.visible = k === 'buoy'; if (grid) grid.visible = k !== 'buoy';
+    orbit.radius = types[k].radius; orbit.target.copy(types[k].target);
+    document.getElementById('hudType').textContent = types[k].label;
+    document.getElementById('hudScale').textContent = k === 'buoy' ? 'Moored buoy · concept only' : 'Grid 20 cm · concept only';
+    typeBtns.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.k === k));
+    applyExplode(); select(null); renderList();
+  }
+  let explode = 0;
+  function applyExplode() { parts.forEach(p => p.obj.position.copy(p.base).addScaledVector(p.ex, explode)); }
+
+  // ---------- the cycle ----------
+  const T = 16; // seconds per cycle
+  const phaseEl = document.getElementById('phase'), dotEl = document.getElementById('dot'), pctEl = document.getElementById('pct'), barEl = document.getElementById('bar');
+  const padPos = new THREE.Vector3(), padQ = new THREE.Quaternion(), tmpQ = new THREE.Quaternion();
+  let clock = 0;
+  function cycle(p, time) {
+    const t = types[cur];
+    if (cur === 'buoy') {
+      H.float.position.y = 8 * Math.sin(time * .9);
+      H.float.rotation.x = .13 * Math.sin(time * 1.1); H.float.rotation.z = .09 * Math.sin(time * .8 + 1);
+      H.gimbal.rotation.x = -.7 * H.float.rotation.x; H.gimbal.rotation.z = -.7 * H.float.rotation.z;
+    }
+    const roofOpen = ss(0, .07, p) * (1 - ss(.74, .84, p));
+    H.roof.forEach(r => r.piv.rotation.x = r.s * 2.0 * roofOpen);
+    const shut = p < .07 ? 1 - ss(0, .05, p) : ss(.64, .71, p);
+    H.bars.forEach(b => { const v = b.open + (b.shut - b.open) * shut; b.m.position[b.axis] = v; });
+    const w = p < .08 ? 1 : p < .25 ? 1 - ss(.08, .25, p) : p < .45 ? 0 : p < .64 ? ss(.45, .64, p) : 1; // landed weight
+    const off = p < .45 ? 0 : p < .64 ? 1 : 1 - ss(.64, .71, p);
+    H.pad.updateWorldMatrix(true, false); H.pad.getWorldPosition(padPos); H.pad.getWorldQuaternion(padQ);
+    const offV = V(14, 0, -10).multiplyScalar(off).applyQuaternion(padQ);
+    const hover = V(padPos.x + 60 * Math.sin(time * .4), padPos.y + 380, padPos.z + 40 * Math.cos(time * .5));
+    const landed = padPos.clone().add(offV);
+    drone.position.copy(hover).lerp(landed, w);
+    tmpQ.identity(); drone.quaternion.copy(tmpQ).slerp(padQ, w);
+    if (cur === 'buoy' && p >= .45 && p < .64) { const hold = ss(.45, .56, p) * (1 - ss(.58, .64, p)); drone.position.y = Math.max(drone.position.y, landed.y + 40 * hold); }
+    // battery and status
+    let lvl;
+    if (p < .25) lvl = 100; else if (p < .64) lvl = 100 - 66 * ss(.25, .64, p); else if (t.charge === 'swap') lvl = p < .88 ? 34 : 100; else lvl = p < .84 ? 34 : 34 + 66 * ss(.84, 1, p);
+    batMat.color.setHex(lvl < 50 ? COL.low : COL.bat);
+    const label = p < .07 ? (H.roof.length ? 'Weather OK · opening roof' : 'Weather OK · ready') : p < .25 ? 'Taking off' : p < .45 ? 'On a survey flight' :
+      p < .64 ? (cur === 'buoy' ? (p < .58 ? 'Matching the waves' : 'Touchdown') : 'Precision landing on the marker') : p < .71 ? 'Centering onto the contacts' :
+      p < .84 ? (H.roof.length ? 'Closing roof' : 'Securing') : t.charge === 'swap' ? (p < .94 ? 'Swapping battery' : 'Ready to fly') : 'Charging';
+    phaseEl.textContent = label; const ok = p >= .71 || p < .07; dotEl.classList.toggle('ok', ok);
+    pctEl.textContent = Math.round(lvl) + '%'; barEl.style.width = lvl + '%';
+    if (H.led) { const c = p >= .71 ? 0x2f8a4f : COL.low; H.led.color.setHex(c); H.led.emissive.setHex(p >= .71 ? 0x114422 : 0x551111); }
+    if (H.contact) H.contact.emissive.setHex(p >= .71 && t.charge === 'charge' ? 0x664400 : 0);
+    if (H.swap) { const e = ss(.84, .87, p) * (1 - ss(.9, .94, p)); H.swap.position.x = 70 - 0 * e; H.swapRod.scale.x = .2 + .8 * e; H.swapRod.position.x = -30 * (.2 + .8 * e); H.swapHead.position.x = -60 * (.2 + .8 * e); }
+    const flying = w < 1;
+    props.forEach(pr => pr.visible = true); if (flying) props.forEach(pr => pr.rotation.y += .9);
+  }
+
+  // ---------- info ----------
+  const info = document.getElementById('info');
+  const hex = c => '#' + c.toString(16).padStart(6, '0');
+  let selected = null;
+  function select(p) {
+    if (selected) selected.obj.traverse(m => m.isMesh && m.material.emissive && m.material !== H.led && m.material !== H.contact && m.material.emissive.setHex(0));
+    selected = p;
+    if (p) p.obj.traverse(m => { if (m.isMesh && m.material.emissive && m.material !== H.led && m.material !== H.contact) m.material.emissive.setHex(0x5a2a0a); });
+    const t = types[cur];
+    info.innerHTML = p ? `<h2>${p.name}</h2><p>${p.desc}</p><div class="nodes">${p.nodes.map(n => `<span class="chip">${n}</span>`).join('')}</div>`
+      : `<h2>${t.label}</h2><p>${t.blurb}</p><div class="stats">${t.stats.map(([a, b]) => `<div><b>${a}</b>${b}</div>`).join('')}</div><div class="nodes">${t.nodes.map(n => `<span class="chip">${n}</span>`).join('')}</div>`;
+    document.querySelectorAll('#parts li').forEach(li => li.setAttribute('aria-selected', !!p && li.dataset.id === p.id));
+  }
+  const list = document.getElementById('parts');
+  function renderList() {
+    list.innerHTML = '';
+    parts.filter(p => !p.hidden).forEach(p => {
+      const li = document.createElement('li'); li.dataset.id = p.id; li.tabIndex = 0; li.setAttribute('role', 'option');
+      li.innerHTML = `<span class="sw" style="background:${hex(p.color)}"></span><span>${p.name}</span><span class="grp">${p.group.toLowerCase()}</span>`;
+      const go = () => select(selected === p ? null : p);
+      li.addEventListener('click', go); li.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+      list.appendChild(li);
+    });
+  }
+
+  // ---------- controls ----------
+  const orbit = { theta: 0.85, phi: 1.1, radius: 560, target: V(0, 80, 0) };
+  const ptrs = new Map(); let pinch0 = 0, moved = 0;
+  const cv = renderer.domElement;
+  const clampR = r => Math.min(2500, Math.max(80, r));
+  cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); moved = 0;
+    if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); } });
+  cv.addEventListener('pointermove', e => { if (!ptrs.has(e.pointerId)) return; const p = ptrs.get(e.pointerId); const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    p.x = e.clientX; p.y = e.clientY; moved += Math.abs(dx) + Math.abs(dy);
+    if (ptrs.size === 1) { orbit.theta -= dx * 0.008; orbit.phi = Math.min(Math.PI / 2 - .02, Math.max(.12, orbit.phi - dy * 0.008)); }
+    else if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); if (pinch0) orbit.radius = clampR(orbit.radius * pinch0 / d); pinch0 = d; } });
+  cv.addEventListener('pointerup', e => { const was = ptrs.size; ptrs.delete(e.pointerId); if (was === 1 && moved < 6) pick(e); });
+  cv.addEventListener('pointercancel', e => ptrs.delete(e.pointerId));
+  cv.addEventListener('wheel', e => { e.preventDefault(); orbit.radius = clampR(orbit.radius * (1 + Math.sign(e.deltaY) * 0.08)); }, { passive: false });
+  const ray = new THREE.Raycaster();
+  function pick(e) {
+    const r = cv.getBoundingClientRect();
+    ray.setFromCamera({ x: ((e.clientX - r.left) / r.width) * 2 - 1, y: -((e.clientY - r.top) / r.height) * 2 + 1 }, camera);
+    const hit = ray.intersectObjects(root.children, true).find(h => h.object.userData.part && !h.object.userData.part.hidden);
+    select(hit ? (selected === hit.object.userData.part ? null : hit.object.userData.part) : null);
+  }
+  document.getElementById('explode').addEventListener('input', e => { explode = +e.target.value; applyExplode(); });
+  const run = document.getElementById('run'), spin = document.getElementById('spin');
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) run.checked = false;
+
+  function resize() { const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  new ResizeObserver(resize).observe(stage);
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+  new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  applyTheme(); setType('field'); resize();
+  let last = performance.now();
+  (function loop(now) {
+    now = now || last; const dt = Math.min(.05, (now - last) / 1000); last = now;
+    if (run.checked) clock += dt;
+    const p = run.checked ? (clock % T) / T : .9;
+    cycle(p, clock);
+    if (H.anemo) H.anemo.rotation.y += .08;
+    if (spin.checked && !ptrs.size) orbit.theta += 0.004;
+    const { theta, phi, radius, target } = orbit;
+    camera.position.set(target.x + radius * Math.sin(phi) * Math.sin(theta), target.y + radius * Math.cos(phi), target.z + radius * Math.sin(phi) * Math.cos(theta));
+    camera.lookAt(target); renderer.render(scene, camera); requestAnimationFrame(loop);
+  })();
+})();
+</script>
+</body>
+</html>
