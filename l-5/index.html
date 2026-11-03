@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>L-5 Solar Blimps</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: same bench layout as the other OASA viewers — 3D stage left, spec panel right; stacks on phones */
+:root {
+  --bg: #eef1f3; --panel: #ffffff; --fg: #1b232b; --muted: #5c6873; --line: #d5dce2;
+  --accent: #d2611c; --accent-soft: #fbe7da; --stage: #e3e8ec; --grid: #b9c3cb; --ok: #2f8a4f;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12171c; --panel: #192027; --fg: #e4e9ee; --muted: #93a0ac; --line: #2a343e;
+  --accent: #f08a4b; --accent-soft: #3a2518; --stage: #0f1418; --grid: #33404b; --ok: #5cc07f; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12171c; --panel: #192027; --fg: #e4e9ee; --muted: #93a0ac; --line: #2a343e;
+  --accent: #f08a4b; --accent-soft: #3a2518; --stage: #0f1418; --grid: #33404b; --ok: #5cc07f; color-scheme: dark }
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--fg); font-family: var(--display); }
+.app { display: grid; grid-template-columns: minmax(0, 1fr) 350px; gap: 16px; height: 100%;
+  padding-block: 16px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.stage { position: relative; background: var(--stage); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; min-height: 360px; touch-action: none; }
+.stage canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+.stage canvas:active { cursor: grabbing; }
+.hud { position: absolute; left: 12px; top: 12px; right: 12px; display: flex; justify-content: space-between; gap: 8px; pointer-events: none; flex-wrap: wrap; }
+.tag { font: 600 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); background: var(--panel); border: 1px solid var(--line); padding: 6px 8px; border-radius: 3px; }
+.tag b { color: var(--accent); font-weight: 600; }
+.status { position: absolute; left: 12px; bottom: 34px; display: flex; gap: 8px; align-items: center; pointer-events: none; flex-wrap: wrap; }
+.status .tag { color: var(--fg); }
+.status .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-right: 6px; vertical-align: -1px; }
+.status .dot.ok { background: var(--ok); }
+.meter { width: 70px; height: 8px; border: 1px solid var(--line); background: var(--panel); border-radius: 2px; display: inline-block; vertical-align: -1px; margin-left: 6px; overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--ok); }
+.hint { position: absolute; left: 12px; bottom: 12px; font: 11px/1.4 var(--mono); color: var(--muted); pointer-events: none; }
+.side { display: flex; flex-direction: column; gap: 14px; min-width: 0; overflow-y: auto; }
+.back { font: 600 12px/1 var(--mono); color: var(--accent); text-decoration: none; }
+.back:hover { text-decoration: underline; }
+h1 { font-size: 22px; font-weight: 800; margin: 0; letter-spacing: -.01em; text-wrap: balance; }
+.sub { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 4px 0 0; }
+.label { font: 600 10.5px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+.btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.btns button { font: 600 12.5px/1 var(--display); color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 8px 10px; cursor: pointer; }
+.btns button[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.btns button small { font: 600 10px/1 var(--mono); opacity: .65; margin-left: 4px; }
+button:focus-visible, input:focus-visible, li:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.row { display: flex; align-items: center; gap: 10px; font-size: 13px; flex-wrap: wrap; }
+.row input[type=range] { flex: 1; accent-color: var(--accent); }
+.row label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.info { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 12px 14px; }
+.info h2 { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
+.info p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.info .nodes { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { font: 600 11px/1 var(--mono); padding: 4px 6px; border-radius: 3px; background: var(--accent-soft); color: var(--accent); }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.stats div { font: 11px/1.3 var(--mono); color: var(--muted); }
+.stats b { display: block; font: 600 14px/1.2 var(--mono); color: var(--fg); font-variant-numeric: tabular-nums; }
+ul.parts { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+ul.parts li { display: flex; align-items: center; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--line); font-size: 13px; cursor: pointer; }
+ul.parts li:hover { background: var(--panel); }
+ul.parts li[aria-selected="true"] { background: var(--accent-soft); }
+.sw { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+ul.parts .grp { margin-left: auto; font: 10.5px/1 var(--mono); color: var(--muted); }
+.note { font-size: 12px; color: var(--muted); line-height: 1.5; margin: 0; }
+@media (max-width: 760px) {
+  .app { grid-template-columns: 1fr; height: auto; }
+  .stage { height: 62vh; }
+  .side { overflow: visible; }
+}
+</style>
+
+</head>
+<body>
+<div class="app">
+  <div class="stage" id="stage">
+    <div class="hud">
+      <span class="tag">L-5 · <b id="hudType">Solar blimp</b></span>
+      <span class="tag">Height above ground shortened · concept only</span>
+    </div>
+    <div class="status"><span class="tag"><span class="dot ok"></span><span id="phase">Holding station</span></span><span class="tag">Solar <span id="sol">900 W</span></span></div>
+    <div class="hint">Drag to rotate · scroll or pinch to zoom · tap a part</div>
+  </div>
+
+  <aside class="side">
+    <a class="back" href="../">← All OASA mockups</a>
+    <div>
+      <h1>L-5 solar blimps</h1>
+      <p class="sub">Lighter-than-air platforms that hang over an area for days or weeks as a high radio relay and an eye in the sky. One envelope, gondola, solar skin and radio, from a tethered balloon to a drone-carrying mothership. Block shapes only; sizes are rough guesses.</p>
+    </div>
+
+    <div>
+      <p class="label">Type</p>
+      <div class="btns" id="types"></div>
+    </div>
+
+    <div>
+      <p class="label">Size</p>
+      <div class="btns" id="sizes"></div>
+    </div>
+
+    <div>
+      <p class="label">View</p>
+      <div class="row"><label><input type="checkbox" id="run" checked> Animate</label><label><input type="checkbox" id="spin"> Turntable</label></div>
+      <div class="row" style="margin-top:10px"><span>Assembled</span><input id="explode" type="range" min="0" max="1" step="0.01" value="0" aria-label="Exploded view"><span>Exploded</span></div>
+    </div>
+
+    <div class="info" id="info"></div>
+
+    <div>
+      <p class="label">Parts</p>
+      <ul class="parts" id="parts" role="listbox" aria-label="Parts"></ul>
+    </div>
+
+    <p class="note">The blimp is drawn much closer to the ground than it would fly (usually 150 m to 3 km up) so you can see both. The person and mast below are to scale with the blimp. Node IDs match the OASA tech tree.</p>
+  </aside>
+</div>
+
+<script src="../lib/three.min.js"></script>
+<script>
+(function () {
+  const stage = document.getElementById('stage');
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  stage.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(38, 1, 1, 80000);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 0.85));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.75); sun.position.set(3000, 6000, 3600); scene.add(sun);
+  const fill = new THREE.DirectionalLight(0xffffff, 0.3); fill.position.set(-3600, 1500, -3000); scene.add(fill);
+  function applyTheme() { renderer.setClearColor(new THREE.Color(css('--stage'))); }
+
+  const M = (color, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.6, metalness: 0.1 }, o));
+  const COL = { env: 0xeef0f2, stripe: 0xd2611c, solar: 0x1f3557, fin: 0xd9dde1, gond: 0x58656f, dark: 0x30363d, motor: 0x262a2f, prop: 0xaab4bd,
+    bat: 0x3c7dd9, five: 0xd2611c, sub: 0x3c7dd9, gnss: 0xe6e9ec, thermal: 0xc7432b, lens: 0x5c8fd9, yellow: 0xe8b923, steel: 0x8d979f, grass: 0x8aa86b, green: 0x3d8b4f, purple: 0x8a5cc7, white: 0xe6e9ec };
+  const V = (x, y, z) => new THREE.Vector3(x, y, z);
+  const box = (g, w, h, d, mat, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); g.add(m); return m; };
+  const cyl = (g, r, h, mat, x = 0, y = 0, z = 0, seg = 24, r2) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r2 ?? r, h, seg), mat); m.position.set(x, y, z); g.add(m); return m; };
+  const cylX = (...a) => { const m = cyl(...a); m.rotation.z = Math.PI / 2; return m; };
+  const ell = (g, a, b, mat, x = 0, y = 0, z = 0, o = {}) => { const m = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 24, 0, Math.PI * 2, o.t0 || 0, o.t1 || Math.PI), mat); m.scale.set(a, b, b); m.position.set(x, y, z); g.add(m); return m; };
+  let parts = [];
+  function part(spec, build, parent) {
+    const g = new THREE.Group(); build(g);
+    const p = Object.assign({ obj: g, ex: spec.ex || V(0, 0, 0) }, spec);
+    g.traverse(m => { if (m.isMesh) m.userData.part = p; });
+    (parent || blimp).add(g); p.base = g.position.clone(); parts.push(p); return p;
+  }
+  const H = {}; const spinners = [];
+
+  // ---------- sizes (base model: 10 m long, 2.6 m across, in cm) ----------
+  const SIZES = {
+    small: { label: 'Small', s: .4, L: 4 }, medium: { label: 'Medium', s: 1, L: 10 }, large: { label: 'Large', s: 2.5, L: 25 }, xl: { label: 'Extra large', s: 6, L: 60 }
+  };
+  let size = 'medium', cur = 'solar';
+  const SZ = () => SIZES[size];
+  function sizeStats() {
+    const L = SZ().L, D = L * .26, vol = 4 / 3 * Math.PI * (L / 2) * (D / 2) ** 2, lift = vol * 1.0, payload = lift * (size === 'small' ? .2 : size === 'medium' ? .3 : .38);
+    const solar = cur === 'tether' ? 0 : .5 * L * D * .9 * 80;
+    const fmt = (x, u) => x >= 1000 ? (x / 1000).toFixed(x >= 10000 ? 0 : 1) + ' ' + (u === 'kg' ? 't' : 'k' + u) : Math.round(x) + ' ' + u;
+    const endure = cur === 'tether' ? 'weeks (power up the tether)' : { small: 'hours (test)', medium: 'days', large: 'weeks', xl: 'weeks to months' }[size];
+    return `<div class="stats"><div><b>${L} m</b>length</div><div><b>${fmt(vol, 'm³').replace('km³', 'k m³')}</b>helium</div><div><b>${fmt(payload, 'kg')}</b>payload</div>`
+      + `<div><b>${solar ? fmt(solar, 'W') : 'tether'}</b>power</div><div><b>${endure}</b>aloft</div><div><b>${{ small: '1–2', medium: '2', large: '3–4', xl: '6+' }[size]}</b>ground crew</div></div>`;
+  }
+
+  // ---------- the blimp (cm; +x is the nose) ----------
+  const blimp = new THREE.Group(); scene.add(blimp);
+  const ground = new THREE.Group(); scene.add(ground);
+  function baseBlimp(t) {
+    const fat = t.fat || 1, A = 500, B = 130 * fat;
+    part({ id: 'envelope', name: 'Envelope', group: 'Airship', color: COL.env, nodes: ['L-4', 'L-5'],
+      desc: 'Helium-filled skin of laminated ripstop with an orange band for visibility. Inside, small air bags (ballonets) keep the pressure right as it climbs, cools and warms.', ex: V(0, 0, 0) },
+      g => { ell(g, A, B, M(COL.env, { roughness: .5 })); const band = ell(g, A * .995, B * 1.004, M(COL.stripe), 0, 0, 0); band.scale.x = A * .995; band.geometry = new THREE.SphereGeometry(1, 48, 4, 0, Math.PI * 2, Math.PI * .47, Math.PI * .06);
+        cyl(g, 6, 12, M(COL.steel, { metalness: .7 }), A + 4, 0, 0, 12).rotation.z = Math.PI / 2; });
+    if (!t.noSolar) part({ id: 'skin', name: 'Solar skin', group: 'Airship', color: COL.solar, nodes: ['R-PWR2', 'L-5'],
+      desc: 'Thin, flexible solar film across the top of the envelope. It powers the thrusters and payload by day and charges the battery for the night.', ex: V(0, 120, 0) },
+      g => { ell(g, A * .82, B * 1.012, M(COL.solar, { roughness: .3, metalness: .3, side: THREE.DoubleSide }), -20, 0, 0, { t0: 0, t1: Math.PI * .32 });
+        for (let i = -3; i <= 3; i++) box(g, 2, 2, B * 1.4, M(0x9aa4ad), i * 110, B * .98 - Math.abs(i) * 12, 0).scale.y = 1; });
+    part({ id: 'fins', name: 'Tail fins', group: 'Airship', color: COL.fin, nodes: ['L-5'],
+      desc: 'An X-tail of four fins keeps it pointing into the wind. Each fin has a moving edge for steering and holding position.', ex: V(-120, 0, 0) },
+      g => { for (let i = 0; i < 4; i++) { const a = Math.PI / 4 + i * Math.PI / 2; const f = new THREE.Group(); f.rotation.x = a; f.position.x = -A * .78; g.add(f);
+        const fin = box(f, 150, 4, B * .9, M(COL.fin), 0, 0, B * .75); fin.rotation.y = 0; box(f, 40, 4.4, B * .9, M(COL.stripe), -55, 0, B * .75); } });
+    part({ id: 'gondola', name: 'Gondola: flight computer and battery', group: 'Airship', color: COL.gond, nodes: ['R-CTL2', 'R-PWR1', 'T-UPD1'],
+      desc: 'Pod under the envelope with the PX4 or ArduPilot flight controller, companion computer, battery and pressure control. Everything inside is a swappable module.', ex: V(0, -120, 0) },
+      g => { const y = -B - 22; box(g, 160, 44, 60, M(COL.gond, { metalness: .3 }), 60, y, 0); const n = cyl(g, 30, 40, M(COL.gond), 150, y, 0, 16, 20); n.rotation.z = -Math.PI / 2; n.scale.z = 1;
+        for (const x of [20, 100]) box(g, 4, 30, 4, M(COL.dark), x, -B - 2, 0); box(g, 70, 20, 40, M(COL.bat), 40, y, 0).visible = true; });
+    part({ id: 'radio', name: 'R-COM5 radio and mesh antennas', group: 'Airship', color: COL.five, nodes: ['R-COM5', 'T-NET2', 'T-RF3'],
+      desc: 'The OASA radio with antennas hanging below the gondola. From this height one blimp links nodes tens of kilometres apart and fills gaps in the ground mesh.', ex: V(0, -80, 40) },
+      g => { const y = -B - 44; box(g, 26, 14, 22, M(0x9aa4ad, { metalness: .5 }), 100, y - 8, 0);
+        for (let i = 0; i < 3; i++) { const a = i * 2 * Math.PI / 3; box(g, .6, 22, 3, M(COL.five), 100 + 12 * Math.cos(a), y - 26, 12 * Math.sin(a)); }
+        cyl(g, 1.4, 90, M(COL.sub), 20, y - 40, 0, 8, .8); cyl(g, 6, 3, M(COL.gnss), 60, -B + 2, 30, 20); });
+    if (!t.noThrust) part({ id: 'thrusters', name: 'Vectored thrusters', group: 'Airship', color: COL.motor, nodes: ['L-5', 'R-CTL2'],
+      desc: 'Two electric propellers on the gondola that swivel up and down. They hold the blimp in place against the wind, climb and descend without dropping ballast, and turn it on the spot.', ex: V(0, -40, 90) },
+      g => { H.vect = []; const y = -B - 22;
+        for (const z of [-1, 1]) { box(g, 10, 6, 70, M(COL.dark), 60, y, z * 65); const piv = new THREE.Group(); piv.position.set(60, y, z * 105); g.add(piv); H.vect.push(piv);
+          cylX(piv, 9, 34, M(COL.motor, { metalness: .5 }), 0, 0, 0, 16); const r = cylX(piv, 26, 2, M(COL.dark, { transparent: true, opacity: .35 }), -19, 0, 0, 28);
+          const pr = new THREE.Group(); pr.position.x = -20; piv.add(pr); box(pr, 1, 50, 5, M(COL.prop)); spinners.push(pr); } });
+  }
+
+  // ---------- types ----------
+  const types = {
+    tether: { label: 'Tethered aerostat', node: 'L-4', fat: 1.25, noSolar: true, noThrust: true, phase: 'Tethered at 150 m · power and data up the cable',
+      nodes: ['L-4', 'R-COM3', 'R-PWR4'], blurb: 'A balloon on a cable. It cannot wander off, and the tether carries power up and data down, so it can stay up for weeks as a tall radio mast that needs no tower.',
+      build: () => {
+        part({ id: 'winch', name: 'Ground winch and mooring trailer', group: 'Ground', color: COL.yellow, nodes: ['L-4', 'R-PWR4'],
+          desc: 'Trailer with a powered winch that reels the aerostat up and down, the generator or grid feed for the tether, and the ground end of the fiber link.', ex: V(0, 0, 0) },
+          g => { box(g, 300, 60, 180, M(COL.yellow), 600, 50, 0); cyl(g, 40, 120, M(COL.dark), 600, 120, 0, 24).rotation.x = Math.PI / 2;
+            for (const x of [520, 680]) for (const z of [-95, 95]) { const w = cyl(g, 30, 20, M(COL.dark), x, 30, z, 20); w.rotation.x = Math.PI / 2; } }, ground);
+        part({ id: 'tether', name: 'Power and fiber tether', group: 'Ground', color: COL.dark, nodes: ['R-COM3', 'R-PWR4', 'U-2'],
+          desc: 'Strong, light cable with copper for power and an optical fiber for data. It also holds the aerostat in place in the wind.', ex: V(0, 0, 0) },
+          g => { H.tether = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0x30363d })); g.add(H.tether); }, scene);
+        part({ id: 'payload', name: 'Camera and radio payload', group: 'Payload', color: COL.lens, nodes: ['X-1', 'R-COM5'],
+          desc: 'Hangs on a short line below the envelope so it stays level. A day and night camera and the mesh radio.', ex: V(0, -80, 0) },
+          g => { const y = -B(1.25) - 70; cyl(g, 1, 60, M(COL.dark), 30, -B(1.25) - 30, 0, 6); box(g, 30, 24, 30, M(COL.gond), 30, y, 0); cyl(g, 8, 10, M(COL.lens, { roughness: .2 }), 30, y - 15, 0, 16); });
+      } },
+    solar: { label: 'Solar blimp', node: 'L-5', phase: 'Holding station',
+      nodes: ['L-5', 'R-PWR2', 'T-NET2'], blurb: 'Free-flying and solar powered. It steers itself to a spot and holds it against the wind, acting as a high mesh relay and camera platform without a tether.',
+      build: () => {
+        part({ id: 'cam', name: 'Day and night camera', group: 'Payload', color: COL.lens, nodes: ['X-1', 'X-6'],
+          desc: 'Stabilized camera ball under the nose for mapping and watching an area.', ex: V(40, -60, 0) },
+          g => { const y = -B() - 52; cyl(g, 2, 14, M(COL.dark), 150, -B() - 40, 0, 8); const ball = new THREE.Mesh(new THREE.SphereGeometry(14, 20, 14), M(COL.gond)); ball.position.set(150, y, 0); g.add(ball); cylX(g, 6, 8, M(COL.lens, { roughness: .2 }), 162, y, 0, 16); });
+      } },
+    fire: { label: 'Wildfire watch', node: 'O-7', phase: 'Scanning for heat and smoke',
+      nodes: ['O-7', 'X-2', 'T-AI1', 'MS-9'], blurb: 'A modern fire tower in the sky. It holds over forest or grassland, scans the horizon with thermal and visual cameras, and reports smoke or a heat spot to TAK within minutes.',
+      build: () => {
+        part({ id: 'turret', name: 'Thermal and visual turret', group: 'Payload', color: COL.thermal, nodes: ['X-2', 'X-1', 'T-AI1'],
+          desc: 'Turret that sweeps all the way round. Onboard AI flags heat spots and smoke plumes and marks them on the map with a bearing and confidence.', ex: V(0, -70, 0) },
+          g => { const y = -B() - 60; cyl(g, 3, 18, M(COL.dark), 120, -B() - 44, 0, 8); H.turret = new THREE.Group(); H.turret.position.set(120, y, 0); g.add(H.turret);
+            const ball = new THREE.Mesh(new THREE.SphereGeometry(18, 20, 14), M(COL.gond)); H.turret.add(ball); box(H.turret, 10, 12, 10, M(COL.thermal), 16, 0, -6); cylX(H.turret, 4, 6, M(COL.lens, { roughness: .2 }), 22, 0, 7, 12);
+            H.cone = new THREE.Mesh(new THREE.ConeGeometry(260, 1400, 24, 1, true), M(COL.thermal, { transparent: true, opacity: .1, side: THREE.DoubleSide, depthWrite: false })); H.cone.rotation.z = Math.PI / 2 + .35; H.cone.position.set(720, -240, 0); H.turret.add(H.cone); });
+        part({ id: 'smoke', name: 'Smoke and weather sensors', group: 'Payload', color: COL.green, nodes: ['O-3', 'O-7'],
+          desc: 'Air sensors for smoke particles and gases, plus wind, temperature and humidity, so fire crews know which way a fire will run.', ex: V(-30, -60, 0) },
+          g => { box(g, 30, 14, 20, M(COL.green), -10, -B() - 44, 0); cyl(g, 1, 30, M(COL.steel), -10, -B() - 65, 0, 6); });
+      } },
+    disaster: { label: 'Disaster blimp', node: 'L-6', min: 'medium', phase: 'Relaying for the response',
+      nodes: ['L-6', 'T-NET2', 'M-5', 'MS-6'], blurb: 'Flown in when ground networks are down. It lifts a heavy mesh repeater, cameras and a loudspeaker over the area, and drops small relay nodes where the ground mesh has gaps.',
+      build: () => {
+        part({ id: 'repeater', name: 'Heavy mesh repeater pod', group: 'Payload', color: COL.five, nodes: ['T-NET2', 'T-NODE2', 'R-COM5'],
+          desc: 'A tower kit in the sky: sector antennas all round, the long-range omni, a LoRa bridge for Meshtastic handhelds, and Wi-Fi for phones below.', ex: V(0, -90, 0) },
+          g => { const y = -B() - 80; box(g, 90, 40, 70, M(COL.gond), 20, y, 0); for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2; const s = box(g, 6, 50, 26, M(COL.white), 20 + Math.cos(a) * 52, y - 40, Math.sin(a) * 42); s.rotation.y = -a; } cyl(g, 1.4, 120, M(COL.sub), 20, y - 100, 0, 8, .8); });
+        part({ id: 'dropper', name: 'Relay node dropper', group: 'Payload', color: COL.yellow, nodes: ['M-5', 'M-3', 'O-2'],
+          desc: 'Magazine of small parachute relay nodes. Dropped where the map shows a gap, each one joins the mesh as it lands.', ex: V(-40, -70, 0) },
+          g => { const y = -B() - 60; cyl(g, 16, 50, M(COL.steel, { transparent: true, opacity: .45 }), -70, y, 0, 16); for (let i = 0; i < 4; i++) cyl(g, 13, 9, M(COL.yellow), -70, y - 18 + i * 12, 0, 16);
+            H.chute = new THREE.Group(); g.add(H.chute); const c = new THREE.Mesh(new THREE.SphereGeometry(30, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), M(COL.stripe, { side: THREE.DoubleSide })); c.position.y = 40; H.chute.add(c); cyl(H.chute, 12, 9, M(COL.yellow), 0, 0, 0, 16); for (const [x, z] of [[20, 0], [-20, 0], [0, 20], [0, -20]]) { const l = cyl(H.chute, .4, 40, M(COL.dark), x / 2, 20, z / 2, 4); l.rotation.set(z / 60, 0, -x / 60); } });
+        part({ id: 'speaker', name: 'Loudspeaker and lights', group: 'Payload', color: COL.white, nodes: ['M-4'],
+          desc: 'Directional speaker for instructions to people on the ground and bright lights for night operations.', ex: V(60, -60, 0) },
+          g => { const y = -B() - 64; cylX(g, 12, 30, M(COL.white), 110, y, 0, 16, 18); box(g, 12, 8, 30, M(0xffffff, { emissive: 0x777766 }), 140, y + 6, 0); });
+      } },
+    mother: { label: 'Blimp mothership', node: 'L-7', min: 'large', phase: 'Launching a drone',
+      nodes: ['L-7', 'M-2', 'T-DOCK2', 'MS-5'], blurb: 'A large blimp that carries small drones, launches them from a trapeze, catches them again in the air and recharges them, so one platform can run many missions far from any base.',
+      build: () => {
+        part({ id: 'hangar', name: 'Drone hangar and chargers', group: 'Payload', color: COL.gond, nodes: ['T-DOCK2', 'L-7'],
+          desc: 'Bay under the gondola holding drones on charging cradles (the OASA-DOCK contacts), with a door at the back.', ex: V(0, -90, 0) },
+          g => { const y = -B() - 80; box(g, 200, 50, 90, M(COL.gond, { metalness: .3 }), -40, y, 0); box(g, 4, 46, 86, M(COL.dark), -142, y, 0);
+            for (const x of [-90, -40, 10]) box(g, 30, 3, 30, M(0xc9a640, { metalness: .8 }), x, y - 23, 0); });
+        part({ id: 'trapeze', name: 'Launch and capture trapeze', group: 'Payload', color: COL.stripe, nodes: ['M-2'],
+          desc: 'A bar that swings down below the blimp. Drones hook onto it to land and drop off it to launch, then it lifts them into the hangar.', ex: V(0, -60, 0) },
+          g => { H.trap = new THREE.Group(); H.trap.position.set(-60, -B() - 105, 0); g.add(H.trap);
+            for (const z of [-30, 30]) { const a = box(H.trap, 4, 90, 4, M(COL.stripe), 0, -45, z); } box(H.trap, 6, 6, 70, M(COL.stripe), 0, -90, 0); });
+        part({ id: 'mdrone', name: 'Small drone (example)', group: 'Payload', color: COL.dark, nodes: ['A-1', 'A-2'],
+          desc: 'A small fixed-wing drone that flies out on a task, comes back and hooks onto the trapeze.', ex: V(0, 0, 0) },
+          g => { H.drone = new THREE.Group(); g.add(H.drone); cylX(H.drone, 4, 50, M(COL.dark), 0, 0, 0, 10); box(H.drone, 16, 1.4, 90, M(COL.white), 4, 2, 0); box(H.drone, 8, 1, 26, M(COL.white), -22, 1, 0); box(H.drone, 8, 10, 1, M(COL.white), -22, 6, 0); box(H.drone, 2, 4, 2, M(COL.stripe), 4, 6, 0); });
+      } }
+  };
+  function B(f) { return 130 * (f || types[cur].fat || 1); }
+
+  // ground: grass, a mooring mast and a person for scale
+  const grass = new THREE.Mesh(new THREE.CircleGeometry(30000, 64), M(COL.grass, { roughness: 1 })); grass.rotation.x = -Math.PI / 2; scene.add(grass);
+  const mast = new THREE.Group(); scene.add(mast);
+  { cyl(mast, 8, 600, M(COL.steel, { metalness: .6 }), 0, 300, 0, 12); for (let i = 0; i < 3; i++) { const a = i * 2 * Math.PI / 3; const l = cyl(mast, 3, 640, M(COL.steel), Math.cos(a) * 110, 290, Math.sin(a) * 110, 8); l.rotation.set(Math.sin(a) * .18, 0, -Math.cos(a) * .18); } cyl(mast, 20, 20, M(COL.stripe), 0, 600, 0, 16); }
+  const person = new THREE.Group(); scene.add(person);
+  { for (const z of [-7, 7]) box(person, 10, 82, 10, M(0x2f3e55), 0, 41, z); box(person, 16, 62, 30, M(COL.stripe), 0, 113, 0); cyl(person, 10, 22, M(0xc8a27c), 0, 156, 0, 16); for (const z of [-19, 19]) box(person, 8, 58, 8, M(COL.stripe), 0, 112, z); }
+
+  // ---------- switching ----------
+  const order = ['small', 'medium', 'large', 'xl'];
+  const allowed = (k, sz = size) => !types[k].min || order.indexOf(sz) >= order.indexOf(types[k].min);
+  const mkBtns = (id, obj, on) => { const el = document.getElementById(id); Object.entries(obj).forEach(([k, t]) => { const b = document.createElement('button'); b.dataset.k = k; b.innerHTML = t.node ? `${t.label}<small>${t.node}</small>` : `${t.label}<small>${t.L} m</small>`; b.addEventListener('click', () => on(k)); el.appendChild(b); }); return el; };
+  const typeBtns = mkBtns('types', types, k => setType(k));
+  const sizeBtns = mkBtns('sizes', SIZES, k => { size = k; setType(cur); });
+  let alt = 0, explode = 0, selected = null;
+  function setType(k) {
+    if (!allowed(k)) k = 'solar'; cur = k;
+    parts.forEach(p => p.obj.parent && p.obj.parent.remove(p.obj)); parts = []; spinners.length = 0; Object.keys(H).forEach(key => delete H[key]);
+    baseBlimp(types[k]); types[k].build();
+    const s = SZ().s; blimp.scale.setScalar(s);
+    alt = Math.max(900, (B() * 2 + 300) * s + 500);
+    blimp.position.set(0, alt, 0);
+    mast.visible = k !== 'tether'; mast.position.set(Math.max(600, 700 * s), 0, 400 + 200 * s); mast.scale.setScalar(Math.max(.6, s * .6));
+    person.position.set(k === 'tether' ? 450 : mast.position.x - 220, 0, k === 'tether' ? 160 : mast.position.z);
+    orbit.radius = Math.max(2600, 2600 * s * .9); orbit.target.set(0, alt * .55, 200);
+    document.getElementById('hudType').textContent = SZ().label + ' ' + types[k].label.toLowerCase();
+    document.getElementById('phase').textContent = types[k].phase;
+    typeBtns.querySelectorAll('button').forEach(b => { b.setAttribute('aria-pressed', b.dataset.k === k); const ok = allowed(b.dataset.k); b.disabled = !ok; b.title = ok ? '' : 'Needs a larger blimp to carry it'; });
+    sizeBtns.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.k === size));
+    applyExplode(); select(null); renderList(); animate(0, clock);
+  }
+  function applyExplode() { parts.forEach(p => p.obj.position.copy(p.base).addScaledVector(p.ex, explode)); }
+
+  // ---------- motion ----------
+  let clock = 0;
+  function animate(dt, t) {
+    const s = SZ().s;
+    blimp.position.y = alt + 20 * s * Math.sin(t * .4); blimp.rotation.y = .12 * Math.sin(t * .1); blimp.rotation.z = .02 * Math.sin(t * .3);
+    spinners.forEach(p => p.rotation.x += dt * 12);
+    if (H.vect) H.vect.forEach((v, i) => v.rotation.z = .5 * Math.sin(t * .25 + i));
+    if (H.tether) { const a = blimp.localToWorld(V(80, -B() - 10, 0)), b = V(600, 160, 0); const mid = a.clone().lerp(b, .5); mid.x -= 200 * s; mid.y -= 120 * s;
+      const pts = []; for (let i = 0; i <= 24; i++) { const u = i / 24; pts.push(V((1 - u) ** 2 * a.x + 2 * (1 - u) * u * mid.x + u * u * b.x, (1 - u) ** 2 * a.y + 2 * (1 - u) * u * mid.y + u * u * b.y, (1 - u) ** 2 * a.z + 2 * (1 - u) * u * mid.z + u * u * b.z)); }
+      H.tether.geometry.setFromPoints(pts); }
+    if (H.turret) { H.turret.rotation.y = t * .35; H.cone.material.opacity = .08 + .04 * Math.sin(t * 2); }
+    if (H.chute) { const k = (t * .08) % 1; H.chute.position.set(-70 - 300 * k, -B() - 100 - (alt / s) * k * .9, 200 * k); H.chute.visible = k < .95; }
+    if (H.drone) { const k = (t * .05) % 1; const hook = V(-60, -B() - 195, 0);
+      let p, yaw = 0, ph;
+      if (k < .1) { p = hook.clone(); ph = 'Drone on the trapeze · charging'; }
+      else if (k < .2) { p = hook.clone().add(V(-300 * (k - .1) / .1, -200 * (k - .1) / .1, 0)); ph = 'Launching a drone'; yaw = Math.PI; }
+      else if (k < .8) { const a = (k - .2) / .6 * Math.PI * 2; p = V(-300 + -1400 * Math.sin(a), -B() - 400, 1400 * (1 - Math.cos(a))); yaw = Math.atan2(-(1400 * Math.sin(a)), -1400 * Math.cos(a)); ph = 'Drone on a mission'; }
+      else if (k < .95) { const u = (k - .8) / .15; p = V(-300 + 300 * u, -B() - 400 + (205) * u, 0); yaw = 0; ph = 'Catching the drone'; }
+      else { p = hook.clone(); ph = 'Drone on the trapeze · charging'; }
+      H.drone.position.copy(p); H.drone.rotation.y = yaw; document.getElementById('phase').textContent = ph;
+      H.trap.rotation.z = (k > .78 && k < .97) || k < .2 ? 0 : -.9; }
+    const solar = types[cur].noSolar ? 0 : Math.round(.5 * SZ().L * SZ().L * .26 * .9 * 80 * (.9 + .1 * Math.sin(t * .2)));
+    document.getElementById('sol').textContent = solar ? (solar >= 1000 ? (solar / 1000).toFixed(1) + ' kW' : solar + ' W') : 'via tether';
+  }
+
+  // ---------- info ----------
+  const info = document.getElementById('info');
+  const hex = c => '#' + c.toString(16).padStart(6, '0');
+  function select(p) {
+    if (selected) selected.obj.traverse(m => m.isMesh && m.material.emissive && m.userData.e0 !== undefined && m.material.emissive.setHex(m.userData.e0));
+    selected = p;
+    if (p) p.obj.traverse(m => { if (m.isMesh && m.material.emissive) { if (m.userData.e0 === undefined) m.userData.e0 = m.material.emissive.getHex(); m.material.emissive.setHex(0x5a2a0a); } });
+    const t = types[cur];
+    info.innerHTML = p ? `<h2>${p.name}</h2><p>${p.desc}</p><div class="nodes">${p.nodes.map(n => `<span class="chip">${n}</span>`).join('')}</div>`
+      : `<h2>${SZ().label} ${t.label.toLowerCase()}</h2><p>${t.blurb}</p>${sizeStats()}<div class="nodes">${t.nodes.map(n => `<span class="chip">${n}</span>`).join('')}</div>`;
+    document.querySelectorAll('#parts li').forEach(li => li.setAttribute('aria-selected', !!p && li.dataset.id === p.id));
+  }
+  const list = document.getElementById('parts');
+  function renderList() {
+    list.innerHTML = '';
+    parts.forEach(p => {
+      const li = document.createElement('li'); li.dataset.id = p.id; li.tabIndex = 0; li.setAttribute('role', 'option');
+      li.innerHTML = `<span class="sw" style="background:${hex(p.color)}"></span><span>${p.name}</span><span class="grp">${p.group.toLowerCase()}</span>`;
+      const go = () => select(selected === p ? null : p);
+      li.addEventListener('click', go); li.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+      list.appendChild(li);
+    });
+  }
+
+  // ---------- controls ----------
+  const orbit = { theta: 0.95, phi: 1.25, radius: 2600, target: V(0, 600, 0) };
+  const ptrs = new Map(); let pinch0 = 0, moved = 0;
+  const cv = renderer.domElement;
+  const clampR = r => Math.min(40000, Math.max(120, r));
+  cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); moved = 0;
+    if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); } });
+  cv.addEventListener('pointermove', e => { if (!ptrs.has(e.pointerId)) return; const p = ptrs.get(e.pointerId); const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    p.x = e.clientX; p.y = e.clientY; moved += Math.abs(dx) + Math.abs(dy);
+    if (ptrs.size === 1) { orbit.theta -= dx * 0.008; orbit.phi = Math.min(Math.PI / 2 + .25, Math.max(.12, orbit.phi - dy * 0.008)); }
+    else if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); if (pinch0) orbit.radius = clampR(orbit.radius * pinch0 / d); pinch0 = d; } });
+  cv.addEventListener('pointerup', e => { const was = ptrs.size; ptrs.delete(e.pointerId); if (was === 1 && moved < 6) pick(e); });
+  cv.addEventListener('pointercancel', e => ptrs.delete(e.pointerId));
+  cv.addEventListener('wheel', e => { e.preventDefault(); orbit.radius = clampR(orbit.radius * (1 + Math.sign(e.deltaY) * 0.08)); }, { passive: false });
+  const ray = new THREE.Raycaster();
+  function pick(e) {
+    const r = cv.getBoundingClientRect();
+    ray.setFromCamera({ x: ((e.clientX - r.left) / r.width) * 2 - 1, y: -((e.clientY - r.top) / r.height) * 2 + 1 }, camera);
+    const hit = ray.intersectObjects([blimp, ground, ...scene.children.filter(c => c.type === 'Group')], true).find(h => h.object.userData.part);
+    select(hit ? (selected === hit.object.userData.part ? null : hit.object.userData.part) : null);
+  }
+  document.getElementById('explode').addEventListener('input', e => { explode = +e.target.value; applyExplode(); });
+  const run = document.getElementById('run'), spin = document.getElementById('spin');
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) run.checked = false;
+
+  function resize() { const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  new ResizeObserver(resize).observe(stage);
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+  new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  applyTheme(); setType('solar'); resize();
+  let last = performance.now();
+  (function loop(now) {
+    now = now || last; const dt = Math.min(.05, (now - last) / 1000); last = now;
+    if (run.checked) { clock += dt; animate(dt, clock); }
+    if (spin.checked && !ptrs.size) orbit.theta += 0.004;
+    const { theta, phi, radius, target } = orbit;
+    camera.position.set(target.x + radius * Math.sin(phi) * Math.sin(theta), target.y + radius * Math.cos(phi), target.z + radius * Math.sin(phi) * Math.cos(theta));
+    camera.lookAt(target); renderer.render(scene, camera); requestAnimationFrame(loop);
+  })();
+})();
+</script>
+</body>
+</html>
