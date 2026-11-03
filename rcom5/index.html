@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>R-COM5 Radio Mockup</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: bench instrument — 3D stage on the left, spec panel on the right; stacks on phones */
+:root {
+  --bg: #eef1f3; --panel: #ffffff; --fg: #1b232b; --muted: #5c6873; --line: #d5dce2;
+  --accent: #d2611c; --accent-soft: #fbe7da; --stage: #e3e8ec; --grid: #b9c3cb;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12171c; --panel: #192027; --fg: #e4e9ee; --muted: #93a0ac; --line: #2a343e;
+  --accent: #f08a4b; --accent-soft: #3a2518; --stage: #0f1418; --grid: #33404b; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12171c; --panel: #192027; --fg: #e4e9ee; --muted: #93a0ac; --line: #2a343e;
+  --accent: #f08a4b; --accent-soft: #3a2518; --stage: #0f1418; --grid: #33404b; color-scheme: dark }
+html, body { height: 100%; margin: 0; }
+*, *::before, *::after { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--display); }
+.app { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; height: 100%;
+  padding-block: 16px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); box-sizing: border-box; }
+.stage { position: relative; background: var(--stage); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; min-height: 360px; touch-action: none; }
+.stage canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+.stage canvas:active { cursor: grabbing; }
+.hud { position: absolute; left: 12px; top: 12px; right: 12px; display: flex; justify-content: space-between; gap: 8px; pointer-events: none; flex-wrap: wrap; }
+.tag { font: 600 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); background: var(--panel); border: 1px solid var(--line); padding: 6px 8px; border-radius: 3px; }
+.tag b { color: var(--accent); font-weight: 600; }
+.hint { position: absolute; left: 12px; bottom: 12px; font: 11px/1.4 var(--mono); color: var(--muted); pointer-events: none; }
+.side { display: flex; flex-direction: column; gap: 14px; min-width: 0; overflow-y: auto; }
+h1 { font-size: 22px; font-weight: 800; margin: 0; letter-spacing: -.01em; text-wrap: balance; }
+.sub { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 4px 0 0; }
+.label { font: 600 10.5px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+.variants { display: flex; flex-wrap: wrap; gap: 6px; }
+.variants button { font: 600 12.5px/1 var(--display); color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 8px 10px; cursor: pointer; }
+.variants button[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+button:focus-visible, input:focus-visible, li:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.row input[type=range] { flex: 1; accent-color: var(--accent); }
+.row label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.info { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 12px 14px; }
+.info h2 { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
+.info p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.info .nodes { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { font: 600 11px/1 var(--mono); padding: 4px 6px; border-radius: 3px; background: var(--accent-soft); color: var(--accent); }
+.chip.plan { background: transparent; border: 1px dashed var(--muted); color: var(--muted); }
+ul.parts { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+ul.parts li { display: flex; align-items: center; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--line); font-size: 13px; cursor: pointer; }
+ul.parts li:hover { background: var(--panel); }
+ul.parts li[aria-selected="true"] { background: var(--accent-soft); }
+.sw { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+ul.parts .grp { margin-left: auto; font: 10.5px/1 var(--mono); color: var(--muted); }
+.note { font-size: 12px; color: var(--muted); line-height: 1.5; margin: 0; }
+@media (max-width: 760px) {
+  .app { grid-template-columns: 1fr; height: auto; }
+  .stage { height: 62vh; }
+  .side { overflow: visible; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+.back { font: 600 12px/1 var(--mono); color: var(--accent); text-decoration: none; }
+.back:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="stage" id="stage">
+    <div class="hud">
+      <span class="tag">R-COM5 · <b id="hudVariant">Shared core</b></span>
+      <span class="tag">Grid 10 cm · concept only</span>
+    </div>
+    <div class="hint">Drag to rotate · scroll or pinch to zoom · tap a part</div>
+  </div>
+
+  <aside class="side">
+    <a class="back" href="../">← All OASA mockups</a>
+    <div>
+      <h1>R-COM5 open SDR radio</h1>
+      <p class="sub">Block-level concept of one shared radio core with plug-in band cards, shown in each of the versions on the tech tree. Shapes and sizes are rough guesses for discussion, not a design.</p>
+    </div>
+
+    <div>
+      <p class="label">Version</p>
+      <div class="variants" id="variants"></div>
+    </div>
+
+    <div>
+      <p class="label">View</p>
+      <div class="row"><span>Assembled</span><input id="explode" type="range" min="0" max="1" step="0.01" value="0" aria-label="Exploded view"><span>Exploded</span></div>
+      <div class="row" style="margin-top:8px"><label><input type="checkbox" id="spin"> Turntable</label><label><input type="checkbox" id="later" checked> Show later parts</label></div>
+    </div>
+
+    <div class="info" id="info"></div>
+
+    <div>
+      <p class="label">Parts in this version</p>
+      <ul class="parts" id="parts" role="listbox" aria-label="Parts"></ul>
+    </div>
+
+    <p class="note">Dashed chips are parts planned for later (60 GHz). Node IDs match the OASA tech tree. The 3-antenna triangle is the T-RF3 first step: simulate it, then test direction finding on a 2-channel SDR.</p>
+  </aside>
+</div>
+
+<script src="../lib/three.min.js"></script>
+<script>
+(function () {
+  const stage = document.getElementById('stage');
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+  // ---------- scene ----------
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  stage.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(38, 1, 0.5, 2000);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 0.85));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.75); sun.position.set(40, 80, 50); scene.add(sun);
+  const fill = new THREE.DirectionalLight(0xffffff, 0.3); fill.position.set(-50, 20, -40); scene.add(fill);
+
+  let grid;
+  function applyTheme() {
+    renderer.setClearColor(new THREE.Color(css('--stage')));
+    if (grid) scene.remove(grid);
+    grid = new THREE.GridHelper(400, 40, new THREE.Color(css('--grid')), new THREE.Color(css('--grid')));
+    grid.material.transparent = true; grid.material.opacity = 0.55;
+    grid.position.y = floorY; scene.add(grid);
+  }
+  let floorY = -0.01;
+
+  // ---------- materials ----------
+  const M = (color, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.6, metalness: 0.1 }, o));
+  const COL = {
+    shell: 0x9aa4ad, lid: 0x7d8892, pcb: 0x2f6b4f, chip: 0x2a2f35, sub: 0x3c7dd9, five: 0xd2611c, sixty: 0x8a5cc7,
+    ant: 0x30363d, gnss: 0xe2e5e8, port: 0x4a525a, body: 0x5a646e, accent: 0xd2611c, solar: 0x1f3557, frame: 0x6b747c, ghost: 0xaab4bd
+  };
+
+  // ---------- part registry ----------
+  // every part: { id, name, desc, nodes:[], group:'Core'|'Version', color, later, obj, base, ex }
+  const parts = [];
+  function part(spec, build) {
+    const g = new THREE.Group();
+    build(g);
+    g.position.copy(spec.pos || new THREE.Vector3());
+    const p = Object.assign({ obj: g, base: g.position.clone(), ex: spec.ex || new THREE.Vector3() }, spec);
+    g.traverse(m => { if (m.isMesh) { m.userData.part = p; if (spec.later) { m.material = m.material.clone(); m.material.transparent = true; m.material.opacity = 0.35; } } });
+    parts.push(p);
+    return p;
+  }
+  const V = (x, y, z) => new THREE.Vector3(x, y, z);
+  const box = (g, w, h, d, mat, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); g.add(m); return m; };
+  const cyl = (g, r, h, mat, x = 0, y = 0, z = 0, seg = 24, r2) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r2 ?? r, h, seg), mat); m.position.set(x, y, z); g.add(m); return m; };
+
+  // ---------- shared core (units: cm) ----------
+  const core = new THREE.Group(); scene.add(core);
+  const coreParts = [
+    part({ id: 'tray', name: 'Core enclosure base', group: 'Core', color: COL.shell, nodes: ['R-COM5'],
+      desc: 'Machined or printed tray that every version shares. Card guides along one side, mounting holes on the bottom. Repairable: everything inside unscrews.', ex: V(0, -3, 0) },
+      g => { box(g, 16, 1, 12, M(COL.shell, { metalness: .5 }), 0, .5, 0);
+             box(g, 16, 2.9, .4, M(COL.shell, { metalness: .5 }), 0, 2.45, -5.8); box(g, 16, 2.9, .4, M(COL.shell, { metalness: .5 }), 0, 2.45, 5.8);
+             box(g, .4, 2.9, 12, M(COL.shell, { metalness: .5 }), -7.8, 2.45, 0); }),
+    part({ id: 'lid', name: 'Finned lid / heatsink', group: 'Core', color: COL.lid, nodes: ['R-COM5'],
+      desc: 'Lid doubles as the heatsink for the transceiver and compute. Antenna mounts go through it.', ex: V(0, 9, 0) },
+      g => { const m = M(COL.lid, { metalness: .6, roughness: .45 }); box(g, 16, .6, 12, m, 0, 4.2, 0);
+             for (let i = -5; i <= 5; i++) box(g, 16, 1, .25, m, 0, 5, i); }),
+    part({ id: 'compute', name: 'Compute + router board', group: 'Core', color: COL.pcb, nodes: ['R-COM5', 'R-COM2'],
+      desc: 'Embedded Linux computer with the router inside. Every packet leaves as encrypted OASA link traffic (R-COM2), whatever band carries it.', ex: V(-3, 4, 0) },
+      g => { box(g, 7, .2, 10, M(COL.pcb), -3.8, 1.3, 0); box(g, 2.6, .5, 2.6, M(COL.chip), -4.5, 1.65, -1.5); box(g, 1.6, .4, 3.2, M(COL.chip), -2.4, 1.6, 2.5); }),
+    part({ id: 'trx', name: 'Wideband transceiver', group: 'Core', color: COL.pcb, nodes: ['R-COM5', 'R-COM6'],
+      desc: 'Zynq + AD936x-class transceiver (same family as the E310 and openwifi). Runs OASA waveforms; the band cards only add filters, amps and the right antenna port.', ex: V(3, 2.5, 0) },
+      g => { box(g, 7, .2, 10, M(COL.pcb), 3.8, 1.3, 0); box(g, 3.2, .7, 3.2, M(COL.shell, { metalness: .7 }), 3.4, 1.75, 3); }),
+    part({ id: 'cardA', name: 'Band card: sub-GHz', group: 'Core', color: COL.sub, nodes: ['R-COM5'],
+      desc: 'Control and fallback link (around 900 MHz). Long range, low rate. Keeps the robot reachable when the data link drops.', ex: V(0, 7, -3) },
+      g => { box(g, 5, 2.2, .3, M(COL.sub), 3.8, 2.75, -2.6); box(g, 5, .4, .5, M(COL.chip), 3.8, 1.6, -2.6); cyl(g, .3, 1, M(0xc9a640, { metalness: .9 }), 6.8, 3.2, -2.6, 12).rotation.z = Math.PI / 2; }),
+    part({ id: 'cardB', name: 'Band card: 5.8 GHz data', group: 'Core', color: COL.five, nodes: ['R-COM5', 'T-RF3', 'T-RF4'],
+      desc: 'High-rate data band. Three phase-matched channels feed the triangle array for beam steering and direction finding.', ex: V(0, 7, 0) },
+      g => { box(g, 5, 2.2, .3, M(COL.five), 3.8, 2.75, 0); box(g, 5, .4, .5, M(COL.chip), 3.8, 1.6, 0); for (const y of [2.2, 2.9, 3.6]) cyl(g, .25, 1, M(0xc9a640, { metalness: .9 }), 6.8, y, 0, 12).rotation.z = Math.PI / 2; }),
+    part({ id: 'cardC', name: 'Band card: 60 GHz (later)', group: 'Core', color: COL.sixty, later: true, nodes: ['R-COM5'],
+      desc: 'Reserved slot for a short-range, very high-rate 60 GHz card. Planned after the first two bands work.', ex: V(0, 7, 3) },
+      g => { box(g, 5, 2.2, .3, M(COL.sixty), 3.8, 2.75, 2.6); box(g, 5, .4, .5, M(COL.chip), 3.8, 1.6, 2.6); }),
+    part({ id: 'whip', name: 'Sub-GHz whip antenna', group: 'Core', color: COL.sub, nodes: ['R-COM5'],
+      desc: 'Simple vertical antenna for the control and fallback band.', ex: V(-2, 8, -2) },
+      g => { cyl(g, .5, 1.2, M(COL.ant), -6, 5.3, -4); cyl(g, .3, 13, M(COL.ant), -6, 12.4, -4, 12, .15); }),
+    part({ id: 'array', name: '5.8 GHz triangle array', group: 'Core', color: COL.five, nodes: ['T-RF3', 'T-RF4', 'T-RF5'],
+      desc: 'Three antennas on a triangle for beamforming, null steering on jammers and direction finding. The first step on T-RF3; later the basis for smart beams (T-RF4) and cooperative beams across nodes (T-RF5).', ex: V(3, 8, 0) },
+      g => { const m = M(COL.five, { roughness: .5 }); const r = 3;
+             for (let i = 0; i < 3; i++) { const a = i * 2 * Math.PI / 3 + Math.PI / 6; const x = 2 + r * Math.cos(a), z = r * Math.sin(a);
+               const b = box(g, .35, 5, 1.6, m, x, 7.4, z); b.rotation.y = -a; cyl(g, .6, .5, M(COL.ant), x, 4.9, z); }
+             const ring = new THREE.Mesh(new THREE.TorusGeometry(r, .06, 6, 48), M(COL.five)); ring.rotation.x = Math.PI / 2; ring.position.set(2, 5.6, 0); g.add(ring); }),
+    part({ id: 'mm', name: '60 GHz antenna module (later)', group: 'Core', color: COL.sixty, later: true, nodes: ['R-COM5'],
+      desc: 'Small phased patch module for the 60 GHz card. Placeholder only.', ex: V(4, 6, 4) },
+      g => { box(g, 2.6, 1, 2.6, M(COL.sixty), 6, 5.2, 4.2); }),
+    part({ id: 'gnss', name: 'GNSS / timing puck', group: 'Core', color: COL.gnss, nodes: ['R-NAV1', 'R-TIME1'],
+      desc: 'Position for position-aided beam steering, and a disciplined clock so nodes can phase-sync for cooperative beamforming.', ex: V(-3, 7, 3) },
+      g => { cyl(g, 1.3, .7, M(COL.gnss), -3, 4.9, 3.2, 32); }),
+    part({ id: 'ports', name: 'Ports: Ethernet, power, USB', group: 'Core', color: COL.port, nodes: ['R-COM5'],
+      desc: 'Wired Ethernet to the robot or laptop, a DC power input, and a service USB port. Same on every version.', ex: V(-6, 0, 0) },
+      g => { const m = M(COL.port); box(g, .6, 1.4, 1.8, m, -8.3, 2, -3); cyl(g, .6, .8, m, -8.3, 2, 0).rotation.z = Math.PI / 2; box(g, .6, .6, 1.4, m, -8.3, 2, 2.8); })
+  ];
+  coreParts.forEach(p => core.add(p.obj));
+
+  // ---------- versions ----------
+  const ver = new THREE.Group(); scene.add(ver);
+  const variants = {
+    core: { label: 'Shared core', scale: 1, corePos: V(0, 0, 0), radius: 46, target: V(0, 4, 0), floor: 0, build: () => [] },
+
+    field: { label: 'Field brick', scale: 1, corePos: V(0, 4.4, 0), radius: 58, target: V(0, 6, 0), floor: 0, hide: ['mm'],
+      build: () => [
+        part({ id: 'fbat', name: 'Battery sled', group: 'Version', color: COL.body, nodes: ['R-PWR1'],
+          desc: 'Slim battery that slides under the core and latches on. Swap it in the field without tools; the radio runs a full day on one.', ex: V(0, -6, 0) },
+          g => { box(g, 15.4, 4, 11.4, M(COL.body), 0, 2.2, 0); box(g, 2, 1.2, .4, M(COL.accent), -5, 2.2, 5.85); }),
+        part({ id: 'bumpers', name: 'Rubber corner bumpers', group: 'Version', color: COL.accent, nodes: ['R-COM5'],
+          desc: 'Thick rubber corners take drops onto rock or concrete and keep the ports and card slots off the ground.', ex: V(0, 0, 0) },
+          g => { const m = M(COL.accent, { roughness: .9 });
+                 for (const x of [-8.3, 8.3]) for (const z of [-6.3, 6.3]) { box(g, 2.4, 9, 2.4, m, x, 4.5, z); } }),
+        part({ id: 'handle', name: 'Carry handle', group: 'Version', color: COL.frame, nodes: ['R-COM5'],
+          desc: 'Folding handle along the back edge, clear of the antennas. Also a tie-down point for mounting on a robot or pack.', ex: V(0, 8, -3) },
+          g => { const m = M(COL.frame, { metalness: .5 }); box(g, 1, 7, 1, m, -7.5, 11, -6.3); box(g, 1, 7, 1, m, 7.5, 11, -6.3); box(g, 16, 1.2, 1.6, M(COL.chip, { roughness: .9 }), 0, 14.4, -6.3); }),
+        part({ id: 'caps', name: 'Port and slot covers', group: 'Version', color: COL.chip, nodes: ['R-COM5'],
+          desc: 'Tethered rubber covers seal the ports and the band-card slot against dust and rain when they are not in use.', ex: V(-4, 0, 0) },
+          g => { box(g, .5, 3, 10, M(COL.chip, { roughness: .9 }), -9.1, 6.4, 0); box(g, .5, 2.6, 10, M(COL.chip, { roughness: .9 }), 8.9, 7.2, 0); })
+      ] },
+
+    stack: { label: 'Stackable', scale: 1, corePos: V(0, 6, 0), radius: 70, target: V(0, 10, 0), floor: 0, hide: ['lid', 'array', 'whip', 'gnss', 'mm'],
+      build: () => [
+        part({ id: 'sbat', name: 'Battery module', group: 'Version', color: COL.body, nodes: ['R-PWR1'],
+          desc: 'Bottom layer. Add a second battery module under it for longer runs; the stack bus shares power between layers.', ex: V(0, -8, 0) },
+          g => { box(g, 16, 6, 12, M(COL.body), 0, 3, 0); for (const x of [-4, 0, 4]) box(g, 2.6, .3, 12.2, M(COL.chip), x, 5.9, 0); }),
+        part({ id: 'sexp', name: 'Band expansion module', group: 'Version', color: COL.sixty, nodes: ['R-COM5'],
+          desc: 'Extra layer with more band-card slots, for a relay that bridges several bands at once (for example sub-GHz, 5.8 GHz and 60 GHz together).', ex: V(0, 7, 0) },
+          g => { box(g, 16, 4, 12, M(COL.shell, { metalness: .5 }), 0, 12, 0);
+                 [COL.sub, COL.five, COL.sixty].forEach((c, i) => box(g, .4, 3, 2.4, M(c), 8.1, 12, -3.6 + i * 3.6)); }),
+        part({ id: 'scap', name: 'Antenna cap', group: 'Version', color: COL.five, nodes: ['T-RF3', 'R-TIME1'],
+          desc: 'Top layer carries the triangle array, the sub-GHz whip and the GNSS puck, so the antennas sit above whatever is stacked below.', ex: V(0, 14, 0) },
+          g => { const m = M(COL.five); box(g, 16, 1.5, 12, M(COL.lid, { metalness: .6 }), 0, 14.75, 0);
+                 for (let i = 0; i < 3; i++) { const a = i * 2 * Math.PI / 3 + Math.PI / 6; const b = box(g, .35, 5, 1.6, m, 2 + 3 * Math.cos(a), 18, 3 * Math.sin(a)); b.rotation.y = -a; }
+                 cyl(g, .3, 13, M(COL.ant), -6, 22, -4, 12, .15); cyl(g, 1.3, .7, M(COL.gnss), -3, 15.85, 3.2, 32); }),
+        part({ id: 'rods', name: 'Stack bus and tie bolts', group: 'Version', color: COL.frame, nodes: ['R-COM5'],
+          desc: 'Four corner bolts clamp the layers together; a sealed connector on each face passes power, Ethernet and RF between layers.', ex: V(0, 4, 0) },
+          g => { const m = M(COL.frame, { metalness: .8 }); for (const x of [-7.6, 7.6]) for (const z of [-5.6, 5.6]) cyl(g, .45, 16, m, x, 8, z, 12);
+                 box(g, 5, .6, 1.2, M(0xc9a640, { metalness: .9 }), 0, 6, -5.2); box(g, 5, .6, 1.2, M(0xc9a640, { metalness: .9 }), 0, 10, -5.2); })
+      ] },
+
+    handheld: { label: 'Handheld', scale: .55, corePos: V(0, 0, 0), radius: 46, target: V(0, -4, 0), floor: -15.5, hide: ['mm', 'cardC'],
+      build: () => [
+        part({ id: 'grip', name: 'Grip with battery', group: 'Version', color: COL.body, nodes: ['R-COM7'],
+          desc: 'Hand grip holding a swappable battery pack. The core sits on top so antennas clear the hand.', ex: V(0, -6, 0) },
+          g => { box(g, 6.5, 14, 5, M(COL.body), 0, -7.6, 0); box(g, 5.5, 3, 4.4, M(COL.chip), 0, -13.6, 0); }),
+        part({ id: 'ptt', name: 'Push-to-talk button', group: 'Version', color: COL.accent, nodes: ['R-COM7'],
+          desc: 'Large side button for voice over the same encrypted IP network the robots use.', ex: V(-4, 0, 0) },
+          g => { box(g, 1, 3.2, 1.6, M(COL.accent), -3.6, -4, 0); }),
+        part({ id: 'screen', name: 'Status screen + speaker', group: 'Version', color: COL.chip, nodes: ['R-COM7'],
+          desc: 'Small screen for link, battery and channel. Speaker grille below for voice.', ex: V(0, 0, 4) },
+          g => { box(g, 4.6, 3, .3, M(0x10161c, { roughness: .2 }), 0, -3.2, 2.6); for (let i = 0; i < 4; i++) box(g, 3.6, .25, .2, M(COL.chip), 0, -6 - i * .7, 2.55); }),
+        part({ id: 'phone', name: 'Phone with TAK (clip-on)', group: 'Version', color: COL.ghost, later: true, nodes: ['R-COM7', 'T-MAP1'],
+          desc: 'A phone clips to the back and runs TAK over the radio, so people see the same map as the robots.', ex: V(0, 0, -6) },
+          g => { box(g, 7.4, 15, .8, M(COL.ghost), 0, -6, -3.4); })
+      ] },
+
+    backpack: { label: 'Backpack', scale: 1, corePos: V(0, 0, 0), radius: 95, target: V(0, 8, -6), floor: -21, hide: [],
+      build: () => [
+        part({ id: 'plate', name: 'Pack frame', group: 'Version', color: COL.frame, nodes: ['T-NODE1'],
+          desc: 'Rigid back plate that carries the core, battery and mast. Straps go to a standard pack harness.', ex: V(0, 0, -8) },
+          g => { box(g, 30, 42, 1.5, M(COL.frame), 0, 0, -8); box(g, 4, 46, 1, M(COL.chip), -9, -1, -9.2); box(g, 4, 46, 1, M(COL.chip), 9, -1, -9.2); }),
+        part({ id: 'packbat', name: 'Main battery', group: 'Version', color: COL.body, nodes: ['T-NODE1', 'R-PWR1'],
+          desc: 'Large battery for a full shift of relay work. Swappable without tools.', ex: V(0, -6, 4) },
+          g => { box(g, 20, 9, 10, M(COL.body), 0, -12, -1.5); }),
+        part({ id: 'mast', name: 'Telescoping mast', group: 'Version', color: COL.ant, nodes: ['T-NODE1', 'T-NET2'],
+          desc: 'Lifts a second sub-GHz antenna above the head for range when relaying for the mesh.', ex: V(-6, 10, 0) },
+          g => { cyl(g, .7, 40, M(COL.frame, { metalness: .6 }), -13, 32, -7.5, 16); cyl(g, .35, 14, M(COL.ant), -13, 59, -7.5, 12, .15); })
+      ] },
+
+    vehicle: { label: 'Vehicle', scale: 1, corePos: V(0, 0, 0), radius: 105, target: V(4, 14, 0), floor: -0.8, hide: ['array', 'whip'],
+      build: () => [
+        part({ id: 'mount', name: 'Shock-mounted plate', group: 'Version', color: COL.frame, nodes: ['R-COM5'],
+          desc: 'Bolts to the vehicle or robot chassis on rubber isolators. Vehicle power feeds the core directly.', ex: V(0, -5, 0) },
+          g => { box(g, 24, .6, 18, M(COL.frame), 0, -.3, 0); for (const x of [-10, 10]) for (const z of [-7, 7]) cyl(g, 1, 1, M(COL.chip), x, -.3, z); }),
+        part({ id: 'roof', name: 'Roof antenna puck', group: 'Version', color: COL.five, nodes: ['T-RF3', 'T-RF4'],
+          desc: 'The triangle array and the sub-GHz antenna move into one weatherproof puck on the roof, linked by short phase-matched cables.', ex: V(0, 12, 0) },
+          g => { box(g, 50, .4, 34, M(COL.ghost, { transparent: true, opacity: .25 }), 4, 30, 0);
+                 const d = new THREE.Mesh(new THREE.SphereGeometry(7, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), M(COL.gnss)); d.scale.y = .45; d.position.set(4, 30.2, 0); g.add(d);
+                 cyl(g, .35, 25, M(COL.ant), 4, 17.5, -4, 8); }),
+      ] },
+
+    tower: { label: 'Pole mount', scale: 1, corePos: V(6, 30, 0), radius: 190, target: V(0, 25, 0), floor: -40, hide: [],
+      build: () => [
+        part({ id: 'pole', name: 'Mast pole', group: 'Version', color: COL.frame, nodes: ['T-NET2'],
+          desc: 'Fixed mesh relay on a pole or tower. Height is what gives range here.', ex: V(-8, 0, 0) },
+          g => { cyl(g, 2, 110, M(COL.frame, { metalness: .6 }), -6, 15, 0, 20); }),
+        part({ id: 'enclosure', name: 'Weatherproof box', group: 'Version', color: COL.ghost, nodes: ['R-COM5'],
+          desc: 'Sealed outdoor box around the core with cable glands. The core is the same unit as every other version.', ex: V(10, 0, 0) },
+          g => { box(g, 22, 10, 18, M(COL.ghost, { transparent: true, opacity: .25 }), 6, 32.5, 0); }),
+        part({ id: 'solar', name: 'Solar panel', group: 'Version', color: COL.solar, nodes: ['R-PWR2'],
+          desc: 'Panel sized to run the node all year with the battery, so a relay needs no grid power.', ex: V(0, 18, 0) },
+          g => { const s = box(g, 50, 1.2, 34, M(COL.solar, { roughness: .3, metalness: .4 }), -6, 72, 0); s.rotation.z = -.5; }),
+        part({ id: 'towerbat', name: 'Battery box', group: 'Version', color: COL.body, nodes: ['R-PWR2'],
+          desc: 'Battery and charge controller near the base for easy service.', ex: V(10, -6, 0) },
+          g => { box(g, 18, 16, 16, M(COL.body), 6, -18, 0); })
+      ] },
+
+    airborne: { label: 'Drone mount', scale: .55, corePos: V(0, -4, 0), radius: 70, target: V(0, 0, 0), floor: -10, hide: ['lid', 'cardC', 'mm', 'tray'],
+      build: () => [
+        part({ id: 'shell', name: 'Light open frame', group: 'Version', color: COL.ghost, nodes: ['R-COM5'],
+          desc: 'On aircraft the heavy tray and lid are swapped for a light open frame and the airframe\'s airflow cools the boards.', ex: V(0, -6, 0) },
+          g => { const m = M(COL.ghost); box(g, 16, .4, 12, m, 0, 0, 0); for (const x of [-7.5, 7.5]) for (const z of [-5.5, 5.5]) cyl(g, .3, 4, m, x, 2, z, 8); }),
+        part({ id: 'drone', name: 'Drone body (example host)', group: 'Version', color: COL.frame, nodes: ['A-1'],
+          desc: 'Example quad airframe carrying the radio underneath. Any OASA aircraft would mount it the same way.', ex: V(0, 6, 0) },
+          g => { const m = M(COL.frame); box(g, 20, 1, 20, m, 0, 4, 0);
+                 for (let i = 0; i < 4; i++) { const a = Math.PI / 4 + i * Math.PI / 2; const arm = box(g, 30, .8, 2, m, Math.cos(a) * 15, 4, Math.sin(a) * 15); arm.rotation.y = -a;
+                   cyl(g, 2, 2.4, M(COL.chip), Math.cos(a) * 28, 5.6, Math.sin(a) * 28);
+                   cyl(g, 11, .15, M(COL.ghost, { transparent: true, opacity: .3 }), Math.cos(a) * 28, 7, Math.sin(a) * 28, 32); } })
+      ] }
+  };
+
+  let current = 'core', selected = null, explode = 0;
+  const exploded = document.getElementById('explode');
+
+  function setVariant(key) {
+    current = key; const v = variants[key];
+    // clear previous version parts
+    for (let i = parts.length - 1; i >= 0; i--) if (parts[i].group === 'Version') { ver.remove(parts[i].obj); parts.splice(i, 1); }
+    core.scale.setScalar(v.scale); core.position.copy(v.corePos);
+    v.build().forEach(p => ver.add(p.obj));
+    coreParts.forEach(p => p.obj.visible = !(v.hide || []).includes(p.id));
+    // airborne: hang core under drone, antennas pointing down
+    core.rotation.x = key === 'airborne' ? Math.PI : 0;
+    if (key === 'airborne') core.position.set(0, 3, 0);
+    floorY = v.floor === 0 ? -0.01 : v.floor; if (key === 'airborne') floorY = -14;
+    orbit.radius = v.radius; orbit.target.copy(v.target);
+    applyTheme(); applyLater(); applyExplode();
+    document.getElementById('hudVariant').textContent = v.label;
+    document.querySelectorAll('#variants button').forEach(b => b.setAttribute('aria-pressed', b.dataset.k === key));
+    select(null); renderList();
+  }
+
+  function visibleParts() { return parts.filter(p => p.obj.visible || p.group === 'Version'); }
+
+  function applyExplode() {
+    parts.forEach(p => p.obj.position.copy(p.base).addScaledVector(p.ex, explode));
+  }
+  function applyLater() {
+    const show = document.getElementById('later').checked;
+    parts.forEach(p => { if (p.later) p.obj.visible = show && !(variants[current].hide || []).includes(p.id); });
+  }
+
+  // ---------- selection ----------
+  const info = document.getElementById('info');
+  function hex(c) { return '#' + c.toString(16).padStart(6, '0'); }
+  function select(p) {
+    if (selected) selected.obj.traverse(m => m.isMesh && m.material.emissive && m.material.emissive.setHex(0));
+    selected = p;
+    if (p) p.obj.traverse(m => m.isMesh && m.material.emissive && m.material.emissive.setHex(0x5a2a0a));
+    const v = variants[current];
+    if (!p) {
+      info.innerHTML = `<h2>${v.label}</h2><p>${variantBlurb[current]}</p><div class="nodes">${variantNodes[current].map(n => `<span class="chip">${n}</span>`).join('')}</div>`;
+    } else {
+      info.innerHTML = `<h2>${p.name}</h2><p>${p.desc}</p><div class="nodes">${p.nodes.map(n => `<span class="chip${p.later ? ' plan' : ''}">${n}</span>`).join('')}</div>`;
+    }
+    document.querySelectorAll('#parts li').forEach(li => li.setAttribute('aria-selected', !!p && li.dataset.id === p.id));
+  }
+  const variantBlurb = {
+    core: 'One core for every job: compute and router, a wideband transceiver, and plug-in band cards. Every version below reuses this exact unit.',
+    field: 'The compact field-ready version: the core on a swappable battery sled, with rubber bumpers, a carry handle and sealed covers. Drop it on a robot, a pack or the ground.',
+    stack: 'Modular layers clamped together: battery at the bottom, the core in the middle, extra band slots above it and the antennas on top. Add or swap layers for the job.',
+    handheld: 'The human radio. Push-to-talk voice and data on the same IP network as the robots, with TAK on a clipped phone.',
+    backpack: 'A person-carried relay node with a big battery and a mast, for extending the mesh on foot.',
+    vehicle: 'Bolted to a vehicle or ground robot, with the antennas moved to a roof puck.',
+    tower: 'A fixed solar-powered mesh relay on a pole.',
+    airborne: 'Hung under an aircraft on a light open frame, antennas pointing down for ground links.'
+  };
+  const variantNodes = { core: ['R-COM5'], field: ['R-COM5', 'R-PWR1'], stack: ['R-COM5', 'R-PWR1', 'T-NET2'], handheld: ['R-COM5', 'R-COM7'], backpack: ['R-COM5', 'T-NODE1'], vehicle: ['R-COM5', 'G-1'], tower: ['R-COM5', 'T-NET2', 'R-PWR2'], airborne: ['R-COM5', 'A-1'] };
+
+  const list = document.getElementById('parts');
+  function renderList() {
+    list.innerHTML = '';
+    visibleParts().filter(p => p.obj.visible).forEach(p => {
+      const li = document.createElement('li'); li.dataset.id = p.id; li.tabIndex = 0; li.setAttribute('role', 'option');
+      li.innerHTML = `<span class="sw" style="background:${hex(p.color)}${p.later ? ';opacity:.4' : ''}"></span><span>${p.name}</span><span class="grp">${p.group === 'Core' ? 'core' : 'version'}</span>`;
+      const go = () => select(selected === p ? null : p);
+      li.addEventListener('click', go); li.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+      list.appendChild(li);
+    });
+  }
+
+  // ---------- orbit controls ----------
+  const orbit = { theta: 0.75, phi: 1.05, radius: 46, target: V(0, 4, 0) };
+  const ptrs = new Map(); let pinch0 = 0, moved = 0;
+  const cv = renderer.domElement;
+  cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); moved = 0;
+    if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); } });
+  cv.addEventListener('pointermove', e => { if (!ptrs.has(e.pointerId)) return; const p = ptrs.get(e.pointerId); const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    p.x = e.clientX; p.y = e.clientY; moved += Math.abs(dx) + Math.abs(dy);
+    if (ptrs.size === 1) { orbit.theta -= dx * 0.008; orbit.phi = Math.min(Math.PI - .15, Math.max(.15, orbit.phi - dy * 0.008)); }
+    else if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); if (pinch0) orbit.radius = clampR(orbit.radius * pinch0 / d); pinch0 = d; } });
+  const up = e => { const was = ptrs.size; ptrs.delete(e.pointerId); if (was === 1 && moved < 6) pick(e); };
+  cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', e => ptrs.delete(e.pointerId));
+  cv.addEventListener('wheel', e => { e.preventDefault(); orbit.radius = clampR(orbit.radius * (1 + Math.sign(e.deltaY) * 0.08)); }, { passive: false });
+  const clampR = r => Math.min(400, Math.max(12, r));
+
+  const ray = new THREE.Raycaster();
+  function pick(e) {
+    const r = cv.getBoundingClientRect();
+    ray.setFromCamera({ x: ((e.clientX - r.left) / r.width) * 2 - 1, y: -((e.clientY - r.top) / r.height) * 2 + 1 }, camera);
+    const hit = ray.intersectObjects(scene.children, true).find(h => h.object.userData.part && h.object.visible);
+    select(hit ? (selected === hit.object.userData.part ? null : hit.object.userData.part) : null);
+  }
+
+  // ---------- UI ----------
+  const vbar = document.getElementById('variants');
+  Object.entries(variants).forEach(([k, v]) => { const b = document.createElement('button'); b.textContent = v.label; b.dataset.k = k; b.addEventListener('click', () => setVariant(k)); vbar.appendChild(b); });
+  exploded.addEventListener('input', () => { explode = +exploded.value; applyExplode(); });
+  document.getElementById('later').addEventListener('change', () => { applyLater(); renderList(); });
+  const spin = document.getElementById('spin');
+
+  function resize() { const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  new ResizeObserver(resize).observe(stage);
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+  new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  setVariant('core'); resize();
+  (function loop() {
+    if (spin.checked && !ptrs.size) orbit.theta += 0.004;
+    const { theta, phi, radius, target } = orbit;
+    camera.position.set(target.x + radius * Math.sin(phi) * Math.sin(theta), target.y + radius * Math.cos(phi), target.z + radius * Math.sin(phi) * Math.cos(theta));
+    camera.lookAt(target);
+    renderer.render(scene, camera);
+    requestAnimationFrame(loop);
+  })();
+})();
+</script>
+</body>
+</html>

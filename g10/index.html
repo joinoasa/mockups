@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>G-10 Tracked Platform</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: same bench layout as the R-COM5 viewer — 3D stage left, spec panel right; stacks on phones */
+:root {
+  --bg: #eef1f3; --panel: #ffffff; --fg: #1b232b; --muted: #5c6873; --line: #d5dce2;
+  --accent: #d2611c; --accent-soft: #fbe7da; --stage: #e3e8ec; --grid: #b9c3cb;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12171c; --panel: #192027; --fg: #e4e9ee; --muted: #93a0ac; --line: #2a343e;
+  --accent: #f08a4b; --accent-soft: #3a2518; --stage: #0f1418; --grid: #33404b; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12171c; --panel: #192027; --fg: #e4e9ee; --muted: #93a0ac; --line: #2a343e;
+  --accent: #f08a4b; --accent-soft: #3a2518; --stage: #0f1418; --grid: #33404b; color-scheme: dark }
+html, body { height: 100%; margin: 0; }
+*, *::before, *::after { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--display); }
+.app { display: grid; grid-template-columns: minmax(0, 1fr) 350px; gap: 16px; height: 100%;
+  padding-block: 16px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); box-sizing: border-box; }
+.stage { position: relative; background: var(--stage); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; min-height: 360px; touch-action: none; }
+.stage canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+.stage canvas:active { cursor: grabbing; }
+.hud { position: absolute; left: 12px; top: 12px; right: 12px; display: flex; justify-content: space-between; gap: 8px; pointer-events: none; flex-wrap: wrap; }
+.tag { font: 600 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); background: var(--panel); border: 1px solid var(--line); padding: 6px 8px; border-radius: 3px; }
+.tag b { color: var(--accent); font-weight: 600; }
+.hint { position: absolute; left: 12px; bottom: 12px; font: 11px/1.4 var(--mono); color: var(--muted); pointer-events: none; }
+.side { display: flex; flex-direction: column; gap: 14px; min-width: 0; overflow-y: auto; }
+h1 { font-size: 22px; font-weight: 800; margin: 0; letter-spacing: -.01em; text-wrap: balance; }
+.sub { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 4px 0 0; }
+.label { font: 600 10.5px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+.btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.btns button { font: 600 12.5px/1 var(--display); color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 8px 10px; cursor: pointer; }
+.btns button[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.btns button small { font: 600 10px/1 var(--mono); opacity: .65; margin-left: 4px; }
+button:focus-visible, input:focus-visible, li:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.row input[type=range] { flex: 1; accent-color: var(--accent); }
+.row label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.info { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 12px 14px; }
+.info h2 { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
+.info p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.info .nodes { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { font: 600 11px/1 var(--mono); padding: 4px 6px; border-radius: 3px; background: var(--accent-soft); color: var(--accent); }
+ul.parts { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+ul.parts li { display: flex; align-items: center; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--line); font-size: 13px; cursor: pointer; }
+ul.parts li:hover { background: var(--panel); }
+ul.parts li[aria-selected="true"] { background: var(--accent-soft); }
+.sw { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+ul.parts .grp { margin-left: auto; font: 10.5px/1 var(--mono); color: var(--muted); }
+.note { font-size: 12px; color: var(--muted); line-height: 1.5; margin: 0; }
+@media (max-width: 760px) {
+  .app { grid-template-columns: 1fr; height: auto; }
+  .stage { height: 62vh; }
+  .side { overflow: visible; }
+}
+.back { font: 600 12px/1 var(--mono); color: var(--accent); text-decoration: none; }
+.back:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="stage" id="stage">
+    <div class="hud">
+      <span class="tag">G-10 · <b id="hudType">Base platform</b> · <b id="hudTool">No tool</b></span>
+      <span class="tag">Grid 20 cm · concept only</span>
+    </div>
+    <div class="hint">Drag to rotate · scroll or pinch to zoom · tap a part</div>
+  </div>
+
+  <aside class="side">
+    <a class="back" href="../">← All OASA mockups</a>
+    <div>
+      <h1>G-10 open tracked platform</h1>
+      <p class="sub">One open tracked chassis with a battery bay, payload rails, e-stops and an M-7 quick-attach plate on the front. Pick a robot type built on it, then swap tools on the front. Block shapes only; sizes are rough guesses at compact (G-8) scale.</p>
+    </div>
+
+    <div>
+      <p class="label">Robot type</p>
+      <div class="btns" id="types"></div>
+    </div>
+
+    <div>
+      <p class="label">Front tool (M-7 quick-attach)</p>
+      <div class="btns" id="tools"></div>
+    </div>
+
+    <div>
+      <p class="label">View</p>
+      <div class="row"><span>Assembled</span><input id="explode" type="range" min="0" max="1" step="0.01" value="0" aria-label="Exploded view"><span>Exploded</span></div>
+      <div class="row" style="margin-top:8px"><label><input type="checkbox" id="spin"> Turntable</label></div>
+    </div>
+
+    <div class="info" id="info"></div>
+
+    <div>
+      <p class="label">Parts on this build</p>
+      <ul class="parts" id="parts" role="listbox" aria-label="Parts"></ul>
+    </div>
+
+    <p class="note">Choosing a type picks its usual tool, but any tool fits any type through the same plate. Node IDs match the OASA tech tree. The radio on the rear rail is the R-COM5 field brick.</p>
+  </aside>
+</div>
+
+<script src="../lib/three.min.js"></script>
+<script>
+(function () {
+  const stage = document.getElementById('stage');
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  stage.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(38, 1, 1, 5000);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 0.85));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.75); sun.position.set(200, 400, 260); scene.add(sun);
+  const fill = new THREE.DirectionalLight(0xffffff, 0.3); fill.position.set(-260, 100, -200); scene.add(fill);
+  let grid;
+  function applyTheme() {
+    renderer.setClearColor(new THREE.Color(css('--stage')));
+    if (grid) scene.remove(grid);
+    grid = new THREE.GridHelper(800, 40, new THREE.Color(css('--grid')), new THREE.Color(css('--grid')));
+    grid.material.transparent = true; grid.material.opacity = 0.55; grid.position.y = -0.05; scene.add(grid);
+  }
+
+  const M = (color, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.6, metalness: 0.1 }, o));
+  const COL = { rubber: 0x262a2f, steel: 0x8d979f, hull: 0x58656f, bat: 0x3c7dd9, hatch: 0x6f7c86, motor: 0x30363d, rail: 0xb0b8bf,
+    stop: 0xd62f2f, yellow: 0xe8b923, plate: 0xd2611c, sensor: 0x1f252b, radio: 0x9aa4ad, five: 0xd2611c, green: 0x3d8b4f,
+    tool: 0xe0a21b, blade: 0xc7ccd1, ghost: 0xaab4bd, white: 0xe6e9ec, purple: 0x8a5cc7 };
+
+  const parts = [];
+  const V = (x, y, z) => new THREE.Vector3(x, y, z);
+  const box = (g, w, h, d, mat, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); g.add(m); return m; };
+  const cyl = (g, r, h, mat, x = 0, y = 0, z = 0, seg = 24, r2) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r2 ?? r, h, seg), mat); m.position.set(x, y, z); g.add(m); return m; };
+  const cylZ = (...a) => { const m = cyl(...a); m.rotation.x = Math.PI / 2; return m; };
+  const cylX = (...a) => { const m = cyl(...a); m.rotation.z = Math.PI / 2; return m; };
+  function part(spec, build) {
+    const g = new THREE.Group(); build(g);
+    const p = Object.assign({ obj: g, base: V(0, 0, 0), ex: spec.ex || V(0, 0, 0) }, spec);
+    g.traverse(m => { if (m.isMesh) { m.userData.part = p; if (!m.material.transparent) m.material = m.material.clone(); } });
+    return p;
+  }
+
+  // ---------- chassis (units: cm; +x is the front) ----------
+  const chassis = [
+    part({ id: 'tracks', name: 'Rubber tracks', group: 'Chassis', color: COL.rubber, nodes: ['G-10', 'G-1'],
+      desc: 'Two rubber track units with road wheels and a tensioner. Low ground pressure for lawns, slopes, snow and mud. Each unit unbolts as one piece for repair.', ex: V(0, 0, 1) },
+      g => { const r = M(COL.rubber, { roughness: .95 }), s = M(COL.steel, { metalness: .6 });
+        for (const z of [-27, 27]) {
+          box(g, 90, 24, 16, r, 0, 14, z); cylZ(g, 12, 16, r, 45, 14, z, 28); cylZ(g, 12, 16, r, -45, 14, z, 28);
+          for (let i = 0; i < 20; i++) { const x = -48 + i * 5.05; box(g, 2.6, 1.4, 16.2, r, x, 1.6, z); box(g, 2.6, 1.4, 16.2, r, x, 26.4, z); }
+          const o = z > 0 ? 8.6 : -8.6;
+          for (const x of [-22, 0, 22]) cylZ(g, 8, 1.6, s, x, 11, z + o, 20);
+          cylZ(g, 10, 1.6, s, 45, 14, z + o, 20); cylZ(g, 10, 1.6, M(COL.yellow), -45, 14, z + o, 12);
+        } }),
+    part({ id: 'hull', name: 'Hull and frame', group: 'Chassis', color: COL.hull, nodes: ['G-10'],
+      desc: 'Welded or bolted box frame between the tracks. Sealed against water and dust, with service panels on each side.', ex: V(0, 0, 0) },
+      g => { const m = M(COL.hull, { metalness: .3 }); box(g, 104, 22, 36, m, 0, 22, 0); box(g, 8, 14, 36, m, 55, 20, 0); }),
+    part({ id: 'drive', name: 'Drive motors and gearboxes', group: 'Chassis', color: COL.motor, nodes: ['G-10', 'R-CTL2'],
+      desc: 'One electric motor and gearbox per track at the rear (skid steering). Standard motor controllers driven by an ArduPilot or PX4 rover controller.', ex: V(-40, 0, 30) },
+      g => { const m = M(COL.motor, { metalness: .5 }); for (const z of [-12, 12]) { cylZ(g, 7, 14, m, -42, 16, z, 20); box(g, 12, 12, 6, M(COL.steel, { metalness: .6 }), -42, 16, z * 1.55); } }),
+    part({ id: 'battery', name: 'Battery bay (swappable packs)', group: 'Chassis', color: COL.bat, nodes: ['G-10', 'R-PWR1'],
+      desc: 'Two packs slide into a bay in the middle of the hull, low for stability on slopes. Swap them without tools; a dock can also charge them in place.', ex: V(0, 55, 0) },
+      g => { const m = M(COL.bat); box(g, 22, 15, 28, m, -6, 22, 0); box(g, 22, 15, 28, m, 18, 22, 0); for (const x of [-6, 18]) box(g, 8, 2, 4, M(COL.motor), x, 30.5, 0); }),
+    part({ id: 'hatch', name: 'Battery hatch', group: 'Chassis', color: COL.hatch, nodes: ['G-10'],
+      desc: 'Gasketed lid over the battery bay with quick latches.', ex: V(0, 80, 0) },
+      g => { box(g, 56, 1.4, 34, M(COL.hatch, { metalness: .4 }), 6, 33.7, 0); }),
+    part({ id: 'rails', name: 'Payload rails', group: 'Chassis', color: COL.rail, nodes: ['G-10', 'T-PAY1'],
+      desc: 'Two top rails to the OASA payload standard. Sensors, radios, bins and docks all bolt on here and plug into the same power and data.', ex: V(0, 28, 0) },
+      g => { const m = M(COL.rail, { metalness: .7 }); for (const z of [-15.5, 15.5]) { box(g, 100, 2.4, 3, m, 0, 35.2, z); for (let x = -45; x <= 45; x += 15) box(g, 3, 2.6, 3.4, M(COL.motor), x, 34, z); } }),
+    part({ id: 'estops', name: 'E-stop buttons', group: 'Chassis', color: COL.stop, nodes: ['T-SAFE1'],
+      desc: 'A red mushroom button at each corner stops the drive and the tool at once. A remote e-stop over the radio does the same.', ex: V(0, 40, 0) },
+      g => { for (const x of [-48, 48]) for (const z of [-15, 15]) { cyl(g, 3.2, 1.6, M(COL.yellow), x, 33.8, z * 1.15); cyl(g, 2.6, 2.4, M(COL.stop, { roughness: .4 }), x, 35.8, z * 1.15, 20); } }),
+    part({ id: 'm7', name: 'M-7 quick-attach plate', group: 'Chassis', color: COL.plate, nodes: ['M-7'],
+      desc: 'Front tool plate with a mechanical latch, power and data in one connector (OASA-PAY ground profile). Tools lock on in under a minute and tell the robot what they are.', ex: V(30, 0, 0) },
+      g => { const m = M(COL.plate, { metalness: .3 }); box(g, 3, 26, 46, m, 60.5, 22, 0); for (const z of [-17, 17]) box(g, 5, 4, 5, M(COL.steel, { metalness: .7 }), 63, 33, z); box(g, 2, 6, 10, M(COL.motor), 62.5, 16, 0); }),
+    part({ id: 'sensors', name: 'Front sensor head', group: 'Chassis', color: COL.sensor, nodes: ['X-1', 'X-3', 'T-AI1'],
+      desc: 'Stereo camera and a small LiDAR on a short mast, feeding obstacle and person detection. Mounted high so the tool does not block it.', ex: V(10, 45, 0) },
+      g => { const m = M(COL.sensor); box(g, 3, 14, 3, M(COL.steel, { metalness: .6 }), 44, 43, 0); box(g, 6, 5, 18, m, 44, 52, 0);
+        for (const z of [-6, 6]) cylX(g, 1.6, 1, M(0x5c8fd9, { roughness: .2 }), 47.4, 52, z, 16); cyl(g, 4, 5, m, 44, 57, 0, 24); }),
+    part({ id: 'radio', name: 'R-COM5 radio (field brick)', group: 'Chassis', color: COL.radio, nodes: ['R-COM5', 'R-COM2'],
+      desc: 'The OASA radio bolted to the rear rail: encrypted control, video and mesh relay, with its triangle antenna array on top.', ex: V(-10, 50, 0) },
+      g => { box(g, 16, 9, 12, M(COL.radio, { metalness: .5 }), -38, 41, 0);
+        for (let i = 0; i < 3; i++) { const a = i * 2 * Math.PI / 3 + Math.PI / 6; const b = box(g, .4, 6, 1.8, M(COL.five), -38 + 3.5 * Math.cos(a), 48.5, 3.5 * Math.sin(a)); b.rotation.y = -a; }
+        cyl(g, .35, 18, M(COL.rubber), -45, 54.5, -4.5, 10, .2); })
+  ];
+
+  // ---------- robot types (top modules) ----------
+  const types = {
+    base: { label: 'Base platform', node: 'G-10', tool: 'none', nodes: ['G-10', 'G-1', 'T-PAY1'],
+      blurb: 'The open chassis on its own: tracks, drive, battery bay, payload rails, e-stops and the front tool plate. Every type below starts from this exact platform.', build: () => [] },
+    landscape: { label: 'Landscaping', node: 'G-8', tool: 'mower', nodes: ['G-8', 'M-7', 'T-SAFE1', 'T-SITE3'],
+      blurb: 'The compact landscaping robot. Works slopes, trails and tight spots from a scan-based work plan, with tool stop zones for people and animals.',
+      build: () => [
+        part({ id: 'tpu', name: 'Tool power unit', group: 'Type', color: COL.tool, nodes: ['G-8', 'M-7'],
+          desc: 'Extra battery and a small electric hydraulic pump for heavy tools like the flail, fed through the M-7 connector.', ex: V(0, 40, 0) },
+          g => { box(g, 30, 12, 26, M(COL.tool), 6, 43, 0); for (let i = 0; i < 4; i++) box(g, 30, .6, 26, M(COL.motor), 6, 39 + i * 3, 0); }),
+        part({ id: 'guard', name: 'Debris guard', group: 'Type', color: COL.ghost, nodes: ['T-SAFE1'],
+          desc: 'Mesh guard over the sensors and radio against flying sticks and stones.', ex: V(0, 60, 0) },
+          g => { const m = M(COL.ghost, { transparent: true, opacity: .35 }); box(g, 98, 1, 40, m, 0, 64, 0); for (const x of [-46, 46]) for (const z of [-19, 19]) cyl(g, .8, 28, M(COL.steel), x, 50, z, 8); })
+      ] },
+    snow: { label: 'Snow and ice', node: 'G-6', tool: 'snow', nodes: ['G-6', 'R-NAV2'],
+      blurb: 'Clears sidewalks first, then streets, and spreads salt or sand behind it. Precise navigation keeps it on the path in a whiteout.',
+      build: () => [
+        part({ id: 'hopper', name: 'Salt and sand hopper', group: 'Type', color: COL.purple, nodes: ['G-6'],
+          desc: 'Rear hopper with a spinner that spreads de-icer at a set rate along the cleared path.', ex: V(-20, 40, 0) },
+          g => { const h = cyl(g, 18, 26, M(COL.purple), -30, 52, 0, 4, 8); h.rotation.y = Math.PI / 4; cyl(g, 7, 1, M(COL.steel, { metalness: .6 }), -50, 36, 0, 20); box(g, 24, 4, 3, M(COL.steel), -42, 38, 0); }),
+        part({ id: 'beacon', name: 'Amber light bar', group: 'Type', color: COL.yellow, nodes: ['G-6', 'T-SAFE1'],
+          desc: 'Flashing lights so drivers and walkers see it in the dark and snow.', ex: V(0, 50, 0) },
+          g => { box(g, 6, 3, 30, M(COL.yellow, { emissive: 0x553300 }), 30, 39, 0); })
+      ] },
+    trash: { label: 'Trash pickup', node: 'G-3', tool: 'arm', nodes: ['G-3', 'M-1', 'T-AI1'],
+      blurb: 'Patrols parks and streets, spots litter with onboard AI and picks it up with the arm into a bin it empties at a station.',
+      build: () => [
+        part({ id: 'bin', name: 'Collection bin', group: 'Type', color: COL.green, nodes: ['G-3'],
+          desc: 'Tipping bin on the rails, with a lid the arm opens. It dumps into a larger station bin.', ex: V(-20, 45, 0) },
+          g => { box(g, 46, 30, 36, M(COL.green), -16, 51, 0); box(g, 48, 2, 38, M(0x2f6e3e), -16, 67, 0); })
+      ] },
+    mothership: { label: 'Drone carrier', node: 'G-4', tool: 'none', nodes: ['G-4', 'T-DOCK2'],
+      blurb: 'Carries a drone to the work area, launches it, lands it on the moving deck and charges it between flights.',
+      build: () => [
+        part({ id: 'pad', name: 'Landing and charging pad', group: 'Type', color: COL.white, nodes: ['G-4', 'T-DOCK2'],
+          desc: 'Flat pad on raised legs with charging contacts and a marker the drone uses to land precisely.', ex: V(0, 45, 0) },
+          g => { box(g, 80, 2, 60, M(COL.white), 0, 62, 0); for (const x of [-36, 36]) for (const z of [-26, 26]) box(g, 3, 26, 3, M(COL.steel), x, 48, z);
+            const ring = new THREE.Mesh(new THREE.TorusGeometry(14, 1.2, 8, 48), M(COL.plate)); ring.rotation.x = Math.PI / 2; ring.position.set(0, 63.2, 0); g.add(ring);
+            box(g, 16, .4, 3, M(COL.plate), 0, 63.3, 0); box(g, 3, .4, 16, M(COL.plate), 0, 63.3, 0); }),
+        part({ id: 'drone', name: 'Docked drone (example)', group: 'Type', color: COL.sensor, nodes: ['A-1'],
+          desc: 'A small quad resting on the pad. Any OASA drone with the dock standard could use it.', ex: V(0, 80, 0) },
+          g => { const m = M(COL.sensor); box(g, 14, 5, 14, m, 0, 66, 0);
+            for (let i = 0; i < 4; i++) { const a = Math.PI / 4 + i * Math.PI / 2; const arm = box(g, 22, 1.4, 2, m, Math.cos(a) * 11, 66, Math.sin(a) * 11); arm.rotation.y = -a;
+              cyl(g, 9, .3, M(COL.ghost, { transparent: true, opacity: .4 }), Math.cos(a) * 21, 68.5, Math.sin(a) * 21, 28); } })
+      ] },
+    underground: { label: 'Underground explorer', node: 'G-5', tool: 'none', nodes: ['G-5', 'X-3', 'M-5', 'R-NAV3'],
+      blurb: 'Maps caves, tunnels and collapsed buildings in 3D with no GPS, and drops its own radio relays behind it to stay connected.',
+      build: () => [
+        part({ id: 'lidar360', name: '360° LiDAR and lights', group: 'Type', color: COL.sensor, nodes: ['X-3', 'R-NAV3'],
+          desc: 'Spinning LiDAR on a tall mast for full 3D mapping, with flood lights all round for the cameras.', ex: V(0, 50, 0) },
+          g => { box(g, 4, 24, 4, M(COL.steel), 10, 46, 0); cyl(g, 7, 10, M(COL.sensor), 10, 63, 0, 32);
+            for (const z of [-17, 17]) box(g, 4, 4, 8, M(COL.white, { emissive: 0x666655 }), 40, 38, z); }),
+        part({ id: 'dropper', name: 'Relay dropper (M-5)', group: 'Type', color: COL.five, nodes: ['M-5', 'T-NET2'],
+          desc: 'Magazine of small mesh relay pucks. The robot drops one whenever the signal back to the entrance gets weak.', ex: V(-30, 30, 0) },
+          g => { cyl(g, 7, 30, M(COL.ghost, { transparent: true, opacity: .4 }), -22, 50, 0, 20); for (let i = 0; i < 6; i++) cyl(g, 6, 3.5, M(COL.five), -22, 37.5 + i * 4.5, 0, 20); })
+      ] }
+  };
+
+  // ---------- front tools ----------
+  const tools = {
+    none: { label: 'No tool', build: () => [] },
+    mower: { label: 'Mower deck', node: 'M-8', build: () => [ part({ id: 'mower', name: 'Mower deck', group: 'Tool', color: COL.tool, nodes: ['M-8'],
+      desc: 'Low deck with three electric blades. Floats over bumps and stops the blades within a second if anything enters the stop zone.', ex: V(40, 0, 0) },
+      g => { box(g, 3, 14, 6, M(COL.steel), 64, 16, 0); box(g, 36, 6, 84, M(COL.tool), 82, 8, 0); for (const z of [-26, 0, 26]) cyl(g, 11, 2, M(COL.tool), 82, 12, z, 32); for (const z of [-26, 26]) cylX(g, 4, 3, M(COL.rubber), 99, 4, z * 1.5, 16); }) ] },
+    flail: { label: 'Brush cutter', node: 'M-9', build: () => [ part({ id: 'flail', name: 'Flail brush cutter', group: 'Tool', color: COL.tool, nodes: ['M-9'],
+      desc: 'Rotating drum of swinging flails that mulches brush and saplings, under a hood that keeps debris low.', ex: V(40, 0, 0) },
+      g => { box(g, 26, 22, 80, M(COL.tool), 78, 16, 0); cylZ(g, 9, 76, M(COL.steel, { metalness: .6 }), 80, 9, 0, 20); box(g, 4, 6, 80, M(COL.rubber), 92, 4, 0); }) ] },
+    weeder: { label: 'Weed puller', node: 'M-11', build: () => [ part({ id: 'weeder', name: 'Weed puller', group: 'Tool', color: COL.green, nodes: ['M-11', 'T-AI1'],
+      desc: 'A downward camera finds weeds, and a small gripper on a gantry pulls each one by the root. No spraying.', ex: V(40, 0, 0) },
+      g => { box(g, 30, 3, 50, M(COL.steel), 76, 30, 0); for (const z of [-24, 24]) box(g, 3, 26, 3, M(COL.steel), 88, 17, z);
+        box(g, 6, 6, 8, M(COL.green), 80, 26, 6); box(g, 2, 18, 2, M(COL.steel), 80, 15, 6); for (const dz of [-2, 2]) box(g, 1, 5, 1, M(COL.green), 80, 4, 6 + dz); box(g, 5, 4, 5, M(COL.sensor), 86, 27, -12); }) ] },
+    planter: { label: 'Planter', node: 'M-12', build: () => [ part({ id: 'planter', name: 'Planter', group: 'Tool', color: COL.green, nodes: ['M-12', 'T-SITE3'],
+      desc: 'Auger digs a hole at each spot in the plan, then a carousel drops a seedling or shrub in and the robot firms the soil.', ex: V(40, 0, 0) },
+      g => { box(g, 24, 4, 40, M(COL.steel), 76, 34, 0); cyl(g, 3, 30, M(COL.steel, { metalness: .7 }), 82, 14, 12, 16); cyl(g, 14, 6, M(COL.tool), 76, 39, -6, 24);
+        for (let i = 0; i < 6; i++) { const a = i * Math.PI / 3; cyl(g, 0, 10, M(COL.green), 76 + Math.cos(a) * 9, 47, -6 + Math.sin(a) * 9, 8, 3); } }) ] },
+    roller: { label: 'Sod roller', node: 'M-13', build: () => [ part({ id: 'roller', name: 'Sod roller', group: 'Tool', color: COL.steel, nodes: ['M-13'],
+      desc: 'Water-ballast drum that presses new sod or seed into the soil. Fill it light or heavy for the job.', ex: V(40, 0, 0) },
+      g => { cylZ(g, 15, 76, M(COL.steel, { metalness: .5 }), 84, 15, 0, 32); for (const z of [-40, 40]) box(g, 24, 4, 3, M(COL.tool), 72, 20, z); }) ] },
+    spreader: { label: 'Spreader', node: 'M-14', build: () => [ part({ id: 'spreader', name: 'Spreader', group: 'Tool', color: COL.purple, nodes: ['M-14', 'T-SITE3'],
+      desc: 'Hopper and spinning disc that spread seed or fertilizer at a metered rate, varied across the site from the work plan.', ex: V(40, 0, 0) },
+      g => { const h = cyl(g, 18, 24, M(COL.purple), 80, 38, 0, 4, 6); h.rotation.y = Math.PI / 4; cyl(g, 9, 1, M(COL.steel, { metalness: .6 }), 80, 22, 0, 24); box(g, 20, 3, 4, M(COL.steel), 70, 26, 0); }) ] },
+    snow: { label: 'Snow blade', node: 'G-6', build: () => [ part({ id: 'blade', name: 'Angled snow blade', group: 'Tool', color: COL.tool, nodes: ['G-6', 'M-7'],
+      desc: 'Wide blade that angles left or right to push snow off the path, with a rubber edge that will not chip paving.', ex: V(40, 0, 0) },
+      g => { const b = box(g, 4, 30, 96, M(COL.tool), 82, 16, 0); b.rotation.y = .25; b.rotation.z = -.15; box(g, 22, 4, 4, M(COL.steel), 72, 18, 0); box(g, 3, 4, 96, M(COL.rubber), 84, 2, 0).rotation.y = .25; }) ] },
+    arm: { label: 'Grabber arm', node: 'M-1', build: () => [ part({ id: 'arm', name: 'Grabber arm', group: 'Tool', color: COL.plate, nodes: ['M-1'],
+      desc: 'Three-joint arm with a soft gripper for litter, samples or small objects. Reaches the ground in front and the top of the robot.', ex: V(40, 0, 0) },
+      g => { const m = M(COL.plate); cyl(g, 7, 6, M(COL.motor), 68, 36, 0, 24);
+        const l1 = box(g, 5, 36, 5, m, 74, 52, 0); l1.rotation.z = -.5; const l2 = box(g, 4, 34, 4, m, 96, 46, 0); l2.rotation.z = .9;
+        cyl(g, 3.5, 6, M(COL.motor), 107, 32, 0, 16); for (const z of [-3, 3]) box(g, 1.4, 10, 2, M(COL.rubber), 109, 24, z); }) ] }
+  };
+
+  const root = new THREE.Group(); scene.add(root);
+  chassis.forEach(p => root.add(p.obj));
+  let active = [...chassis], typeParts = [], toolParts = [];
+  let curType = 'base', curTool = 'none', selected = null, explode = 0;
+
+  function swap(list, next) { list.forEach(p => root.remove(p.obj)); next.forEach(p => root.add(p.obj)); return next; }
+  function setType(k) {
+    curType = k; typeParts = swap(typeParts, types[k].build());
+    setTool(types[k].tool, true);
+  }
+  function setTool(k, fromType) {
+    curTool = k; toolParts = swap(toolParts, tools[k].build());
+    active = [...chassis, ...typeParts, ...toolParts];
+    applyExplode(); select(null); renderList();
+    document.getElementById('hudType').textContent = types[curType].label;
+    document.getElementById('hudTool').textContent = tools[curTool].label;
+    document.querySelectorAll('#types button').forEach(b => b.setAttribute('aria-pressed', b.dataset.k === curType));
+    document.querySelectorAll('#tools button').forEach(b => b.setAttribute('aria-pressed', b.dataset.k === curTool));
+  }
+  function applyExplode() { active.forEach(p => {
+    if (p.id === 'tracks') { // tracks split sideways
+      p.obj.children.forEach(m => { if (m.userData.z0 === undefined) m.userData.z0 = m.position.z; m.position.z = m.userData.z0 + Math.sign(m.userData.z0) * 30 * explode; });
+    } else p.obj.position.copy(p.base).addScaledVector(p.ex, explode);
+  }); }
+
+  const info = document.getElementById('info');
+  const hex = c => '#' + c.toString(16).padStart(6, '0');
+  function select(p) {
+    if (selected) selected.obj.traverse(m => m.isMesh && m.material.emissive && m.material.emissive.setHex(m.userData.e0 ?? 0));
+    selected = p;
+    if (p) p.obj.traverse(m => { if (m.isMesh && m.material.emissive) { if (m.userData.e0 === undefined) m.userData.e0 = m.material.emissive.getHex(); m.material.emissive.setHex(0x5a2a0a); } });
+    const t = types[curType];
+    info.innerHTML = p
+      ? `<h2>${p.name}</h2><p>${p.desc}</p><div class="nodes">${p.nodes.map(n => `<span class="chip">${n}</span>`).join('')}</div>`
+      : `<h2>${t.label}${curTool !== 'none' ? ' + ' + tools[curTool].label.toLowerCase() : ''}</h2><p>${t.blurb}</p><div class="nodes">${t.nodes.map(n => `<span class="chip">${n}</span>`).join('')}</div>`;
+    document.querySelectorAll('#parts li').forEach(li => li.setAttribute('aria-selected', !!p && li.dataset.id === p.id));
+  }
+  const list = document.getElementById('parts');
+  function renderList() {
+    list.innerHTML = '';
+    active.forEach(p => {
+      const li = document.createElement('li'); li.dataset.id = p.id; li.tabIndex = 0; li.setAttribute('role', 'option');
+      li.innerHTML = `<span class="sw" style="background:${hex(p.color)}"></span><span>${p.name}</span><span class="grp">${p.group.toLowerCase()}</span>`;
+      const go = () => select(selected === p ? null : p);
+      li.addEventListener('click', go); li.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+      list.appendChild(li);
+    });
+  }
+
+  // ---------- orbit ----------
+  const orbit = { theta: 0.85, phi: 1.1, radius: 330, target: V(10, 25, 0) };
+  const ptrs = new Map(); let pinch0 = 0, moved = 0;
+  const cv = renderer.domElement;
+  const clampR = r => Math.min(900, Math.max(60, r));
+  cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); moved = 0;
+    if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); } });
+  cv.addEventListener('pointermove', e => { if (!ptrs.has(e.pointerId)) return; const p = ptrs.get(e.pointerId); const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    p.x = e.clientX; p.y = e.clientY; moved += Math.abs(dx) + Math.abs(dy);
+    if (ptrs.size === 1) { orbit.theta -= dx * 0.008; orbit.phi = Math.min(Math.PI / 2 - .02, Math.max(.15, orbit.phi - dy * 0.008)); }
+    else if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); if (pinch0) orbit.radius = clampR(orbit.radius * pinch0 / d); pinch0 = d; } });
+  cv.addEventListener('pointerup', e => { const was = ptrs.size; ptrs.delete(e.pointerId); if (was === 1 && moved < 6) pick(e); });
+  cv.addEventListener('pointercancel', e => ptrs.delete(e.pointerId));
+  cv.addEventListener('wheel', e => { e.preventDefault(); orbit.radius = clampR(orbit.radius * (1 + Math.sign(e.deltaY) * 0.08)); }, { passive: false });
+  const ray = new THREE.Raycaster();
+  function pick(e) {
+    const r = cv.getBoundingClientRect();
+    ray.setFromCamera({ x: ((e.clientX - r.left) / r.width) * 2 - 1, y: -((e.clientY - r.top) / r.height) * 2 + 1 }, camera);
+    const hit = ray.intersectObjects(root.children, true).find(h => h.object.userData.part);
+    select(hit ? (selected === hit.object.userData.part ? null : hit.object.userData.part) : null);
+  }
+
+  // ---------- UI ----------
+  const tb = document.getElementById('types');
+  Object.entries(types).forEach(([k, t]) => { const b = document.createElement('button'); b.dataset.k = k; b.innerHTML = `${t.label}<small>${t.node}</small>`; b.addEventListener('click', () => setType(k)); tb.appendChild(b); });
+  const ob = document.getElementById('tools');
+  Object.entries(tools).forEach(([k, t]) => { const b = document.createElement('button'); b.dataset.k = k; b.innerHTML = t.node ? `${t.label}<small>${t.node}</small>` : t.label; b.addEventListener('click', () => setTool(k)); ob.appendChild(b); });
+  document.getElementById('explode').addEventListener('input', e => { explode = +e.target.value; applyExplode(); });
+  const spin = document.getElementById('spin');
+
+  function resize() { const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  new ResizeObserver(resize).observe(stage);
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+  new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  applyTheme(); setType('base'); resize();
+  (function loop() {
+    if (spin.checked && !ptrs.size) orbit.theta += 0.004;
+    const { theta, phi, radius, target } = orbit;
+    camera.position.set(target.x + radius * Math.sin(phi) * Math.sin(theta), target.y + radius * Math.cos(phi), target.z + radius * Math.sin(phi) * Math.cos(theta));
+    camera.lookAt(target); renderer.render(scene, camera); requestAnimationFrame(loop);
+  })();
+})();
+</script>
+</body>
+</html>

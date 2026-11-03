@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>OASA Mockups</title>
+<meta name="description" content="Rough 3D concept mockups of OASA tech tree nodes, viewable in the browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a single column index of mockup cards, same tokens as the viewers */
+:root {
+  --bg: #eef1f3; --panel: #ffffff; --fg: #1b232b; --muted: #5c6873; --line: #d5dce2;
+  --accent: #d2611c; --accent-soft: #fbe7da;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root {
+  --bg: #12171c; --panel: #192027; --fg: #e4e9ee; --muted: #93a0ac; --line: #2a343e;
+  --accent: #f08a4b; --accent-soft: #3a2518; color-scheme: dark } }
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--display); }
+main { max-width: 860px; margin: 0 auto; padding-block: 40px 56px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.eyebrow { font: 600 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--accent); margin: 0 0 10px; }
+h1 { font-size: clamp(28px, 5vw, 40px); font-weight: 800; letter-spacing: -.02em; margin: 0; text-wrap: balance; }
+.lede { color: var(--muted); font-size: 15px; line-height: 1.6; max-width: 62ch; margin: 12px 0 32px; }
+.list { display: grid; gap: 12px; }
+a.card { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 16px 18px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; color: inherit; text-decoration: none; }
+a.card:hover { border-color: var(--accent); }
+a.card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.id { font: 600 13px/1.2 var(--mono); color: var(--accent); }
+.card h2 { font-size: 17px; margin: 0 0 4px; }
+.card p { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--muted); }
+.go { font: 600 12px/1 var(--mono); color: var(--muted); white-space: nowrap; }
+footer { margin-top: 36px; font-size: 13px; line-height: 1.6; color: var(--muted); }
+footer a { color: var(--accent); }
+@media (max-width: 560px) { a.card { grid-template-columns: 1fr; gap: 6px; } .go { display: none; } }
+</style>
+</head>
+<body>
+<main>
+  <p class="eyebrow">Open Autonomous Systems Alliance</p>
+  <h1>OASA 3D mockups</h1>
+  <p class="lede">Rough, block-level concepts of nodes on the <a href="https://joinoasa.org/techtree/" style="color:var(--accent)">OASA tech tree</a>. Rotate them, take them apart and tap any part to see what it does. They're for talking ideas through, not designs to build from.</p>
+
+  <div class="list">
+    <a class="card" href="rcom5/">
+      <span class="id">R-COM5</span>
+      <div><h2>Open SDR radio</h2><p>One shared radio core with plug-in band cards, in field brick, stackable, handheld, backpack, vehicle, pole and drone versions.</p></div>
+      <span class="go">Open →</span>
+    </a>
+    <a class="card" href="g10/">
+      <span class="id">G-10</span>
+      <div><h2>Open tracked platform</h2><p>The tracked chassis other ground robots build on: landscaping, snow, trash pickup, drone carrier and underground types, with eight quick-attach tools.</p></div>
+      <span class="go">Open →</span>
+    </a>
+    <a class="card" href="g2/">
+      <span class="id">G-2</span>
+      <div><h2>Legged robots for extreme terrain</h2><p>A 4-legged dog and a 6-legged spider sharing G-10's payloads, radio and e-stop, with their walking gaits.</p></div>
+      <span class="go">Open →</span>
+    </a>
+    <a class="card" href="t-site1/">
+      <span class="id">T-SITE1</span>
+      <div><h2>Survey drone</h2><p>Quad, fixed-wing and VTOL survey drones with swappable sensors, flying a mapping grid over a site for the landscaping robot.</p></div>
+      <span class="go">Open →</span>
+    </a>
+  </div>
+
+  <footer>
+    Want to add or change a mockup? See the <a href="https://github.com/joinoasa/mockups">README on GitHub</a>. Code is Apache-2.0, content is CC BY-SA 4.0.
+  </footer>
+</main>
+</body>
+</html>

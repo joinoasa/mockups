@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>T-SITE1 Survey Drone</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: same bench layout as the other OASA viewers — 3D stage left, spec panel right; stacks on phones */
+:root {
+  --bg: #eef1f3; --panel: #ffffff; --fg: #1b232b; --muted: #5c6873; --line: #d5dce2;
+  --accent: #d2611c; --accent-soft: #fbe7da; --stage: #e3e8ec; --grid: #b9c3cb;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12171c; --panel: #192027; --fg: #e4e9ee; --muted: #93a0ac; --line: #2a343e;
+  --accent: #f08a4b; --accent-soft: #3a2518; --stage: #0f1418; --grid: #33404b; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12171c; --panel: #192027; --fg: #e4e9ee; --muted: #93a0ac; --line: #2a343e;
+  --accent: #f08a4b; --accent-soft: #3a2518; --stage: #0f1418; --grid: #33404b; color-scheme: dark }
+html, body { height: 100%; margin: 0; }
+*, *::before, *::after { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--display); }
+.app { display: grid; grid-template-columns: minmax(0, 1fr) 350px; gap: 16px; height: 100%;
+  padding-block: 16px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); box-sizing: border-box; }
+.stage { position: relative; background: var(--stage); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; min-height: 360px; touch-action: none; }
+.stage canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+.stage canvas:active { cursor: grabbing; }
+.hud { position: absolute; left: 12px; top: 12px; right: 12px; display: flex; justify-content: space-between; gap: 8px; pointer-events: none; flex-wrap: wrap; }
+.tag { font: 600 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); background: var(--panel); border: 1px solid var(--line); padding: 6px 8px; border-radius: 3px; }
+.tag b { color: var(--accent); font-weight: 600; }
+.hint { position: absolute; left: 12px; bottom: 12px; font: 11px/1.4 var(--mono); color: var(--muted); pointer-events: none; }
+.side { display: flex; flex-direction: column; gap: 14px; min-width: 0; overflow-y: auto; }
+h1 { font-size: 22px; font-weight: 800; margin: 0; letter-spacing: -.01em; text-wrap: balance; }
+.sub { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 4px 0 0; }
+.label { font: 600 10.5px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+.btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.btns button { font: 600 12.5px/1 var(--display); color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 8px 10px; cursor: pointer; }
+.btns button[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.btns button small { font: 600 10px/1 var(--mono); opacity: .65; margin-left: 4px; }
+button:focus-visible, input:focus-visible, li:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.row { display: flex; align-items: center; gap: 10px; font-size: 13px; flex-wrap: wrap; }
+.row input[type=range] { flex: 1; accent-color: var(--accent); }
+.row label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.info { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 12px 14px; }
+.info h2 { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
+.info p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.info .nodes { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { font: 600 11px/1 var(--mono); padding: 4px 6px; border-radius: 3px; background: var(--accent-soft); color: var(--accent); }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.stats div { font: 11px/1.3 var(--mono); color: var(--muted); }
+.stats b { display: block; font: 600 15px/1.2 var(--mono); color: var(--fg); font-variant-numeric: tabular-nums; }
+ul.parts { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+ul.parts li { display: flex; align-items: center; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--line); font-size: 13px; cursor: pointer; }
+ul.parts li:hover { background: var(--panel); }
+ul.parts li[aria-selected="true"] { background: var(--accent-soft); }
+.sw { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+ul.parts .grp { margin-left: auto; font: 10.5px/1 var(--mono); color: var(--muted); }
+.note { font-size: 12px; color: var(--muted); line-height: 1.5; margin: 0; }
+@media (max-width: 760px) {
+  .app { grid-template-columns: 1fr; height: auto; }
+  .stage { height: 62vh; }
+  .side { overflow: visible; }
+}
+.back { font: 600 12px/1 var(--mono); color: var(--accent); text-decoration: none; }
+.back:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="stage" id="stage">
+    <div class="hud">
+      <span class="tag">T-SITE1 · <b id="hudFrame">Quad</b> · <b id="hudSensor">Mapping camera</b></span>
+      <span class="tag" id="hudScale">Grid 20 cm · concept only</span>
+    </div>
+    <div class="hint">Drag to rotate · scroll or pinch to zoom · tap a part</div>
+  </div>
+
+  <aside class="side">
+    <a class="back" href="../">← All OASA mockups</a>
+    <div>
+      <h1>T-SITE1 survey drone</h1>
+      <p class="sub">The drone that plans its own flight over a site, captures it, and builds a map with an accuracy report. That map becomes the work plan for the G-10 landscaping robot. Block shapes only; sizes are rough guesses.</p>
+    </div>
+
+    <div>
+      <p class="label">Airframe</p>
+      <div class="btns" id="frames"></div>
+    </div>
+
+    <div>
+      <p class="label">Survey sensor</p>
+      <div class="btns" id="sensors"></div>
+    </div>
+
+    <div>
+      <p class="label">View</p>
+      <div class="btns" id="views"></div>
+      <div class="row" style="margin-top:10px" id="explodeRow"><span>Assembled</span><input id="explode" type="range" min="0" max="1" step="0.01" value="0" aria-label="Exploded view"><span>Exploded</span></div>
+      <div class="row" style="margin-top:8px"><label><input type="checkbox" id="fly" checked> Fly the mission</label><label><input type="checkbox" id="spin"> Turntable</label></div>
+    </div>
+
+    <div class="info" id="info"></div>
+
+    <div>
+      <p class="label">Parts</p>
+      <ul class="parts" id="parts" role="listbox" aria-label="Parts"></ul>
+    </div>
+
+    <p class="note">In the mission view the drone is drawn much larger than scale so you can see it. Node IDs match the OASA tech tree.</p>
+  </aside>
+</div>
+
+<script src="../lib/three.min.js"></script>
+<script>
+(function () {
+  const stage = document.getElementById('stage');
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  stage.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(38, 1, 1, 8000);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 0.85));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.75); sun.position.set(300, 600, 360); scene.add(sun);
+  const fill = new THREE.DirectionalLight(0xffffff, 0.3); fill.position.set(-360, 150, -300); scene.add(fill);
+  let grid;
+  function applyTheme() {
+    renderer.setClearColor(new THREE.Color(css('--stage')));
+    if (grid) scene.remove(grid);
+    grid = new THREE.GridHelper(800, 40, new THREE.Color(css('--grid')), new THREE.Color(css('--grid')));
+    grid.material.transparent = true; grid.material.opacity = 0.55; grid.position.y = -0.05; grid.visible = view === 'build'; scene.add(grid);
+  }
+
+  const M = (color, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.6, metalness: 0.1 }, o));
+  const COL = { frame: 0x3a434c, arm: 0x58656f, motor: 0x262a2f, prop: 0xaab4bd, bat: 0x3c7dd9, gnss: 0xe6e9ec, radio: 0x9aa4ad, five: 0xd2611c,
+    fc: 0x2f6b4f, lens: 0x5c8fd9, white: 0xe6e9ec, purple: 0x8a5cc7, lidar: 0x1f252b, thermal: 0xc7432b, skid: 0x30363d };
+  const V = (x, y, z) => new THREE.Vector3(x, y, z);
+  const box = (g, w, h, d, mat, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); g.add(m); return m; };
+  const cyl = (g, r, h, mat, x = 0, y = 0, z = 0, seg = 24, r2) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r2 ?? r, h, seg), mat); m.position.set(x, y, z); g.add(m); return m; };
+  const cylX = (...a) => { const m = cyl(...a); m.rotation.z = Math.PI / 2; return m; };
+  const cylZ = (...a) => { const m = cyl(...a); m.rotation.x = Math.PI / 2; return m; };
+  const props = [];
+  function rotor(g, x, y, z, r) {
+    cyl(g, 2.6, 4, M(COL.motor, { metalness: .5 }), x, y, z, 16);
+    const p = cyl(g, r, .25, M(COL.prop, { transparent: true, opacity: .35 }), x, y + 2.4, z, 32); props.push(p);
+    const b = box(g, r * 2, .3, 1.8, M(COL.motor), x, y + 2.5, z); props.push(b);
+  }
+  function part(spec, build) {
+    const g = new THREE.Group(); build(g);
+    const p = Object.assign({ obj: g, ex: spec.ex || V(0, 0, 0) }, spec);
+    g.traverse(m => { if (m.isMesh) m.userData.part = p; });
+    return p;
+  }
+
+  // ---------- airframes (cm; +x is forward). Each returns parts and where the sensor/radio/gnss go ----------
+  const frames = {
+    quad: { label: 'Quad', node: 'A-1', nodes: ['T-SITE1', 'A-1', 'X-6', 'R-NAV2'],
+      blurb: 'The reference quad. Hovers and flies slow, low grids, so it suits small sites, steep ground, tree lines and buildings. About 25–35 minutes per battery.',
+      mount: { sensor: V(14, 9, 0), gnss: V(-4, 22, 0), radio: V(-14, 12, 0), bat: V(-2, 16.5, 0), fc: V(0, 11, 0) }, endurance: 30, speed: 10,
+      build: () => [
+        part({ id: 'frame', name: 'Carbon frame and arms', group: 'Airframe', color: COL.frame, nodes: ['A-1'],
+          desc: 'Open quad frame with folding arms, so it packs into a case. Arms and motors are the same part on all four corners.', ex: V(0, 0, 0) },
+          g => { box(g, 26, 8, 20, M(COL.frame), 0, 11, 0);
+            for (let i = 0; i < 4; i++) { const a = Math.PI / 4 + i * Math.PI / 2, L = 34; const arm = box(g, L, 2.4, 3, M(COL.arm), Math.cos(a) * (L / 2 + 6), 12, Math.sin(a) * (L / 2 + 6)); arm.rotation.y = -a;
+              rotor(g, Math.cos(a) * (L + 6), 14, Math.sin(a) * (L + 6), 19); } }),
+        part({ id: 'skids', name: 'Landing gear', group: 'Airframe', color: COL.skid, nodes: ['A-1'],
+          desc: 'Tall skids keep the sensor clear of grass and rocks on landing. Matched to a dock pad for precision landing.', ex: V(0, -12, 0) },
+          g => { const m = M(COL.skid); for (const z of [-11, 11]) { box(g, 34, 1.4, 1.4, m, 0, .7, z); for (const x of [-9, 9]) { const l = box(g, 1.2, 9, 1.2, m, x, 5, z * .8); l.rotation.x = z > 0 ? -.25 : .25; } } })
+      ] },
+    wing: { label: 'Fixed-wing', node: 'A-2', nodes: ['T-SITE1', 'A-2', 'X-6', 'R-NAV2'],
+      blurb: 'The reference fixed-wing. Flies an hour or more and covers large sites, fields and rights-of-way in one flight. Needs space to hand-launch and belly-land.',
+      mount: { sensor: V(8, 2.5, 0), gnss: V(-6, 14, 0), radio: V(-28, 10, 0), bat: V(14, 10, 0), fc: V(-8, 9, 0) }, endurance: 70, speed: 16,
+      build: () => [
+        part({ id: 'fuse', name: 'Fuselage, wing and tail', group: 'Airframe', color: COL.white, nodes: ['A-2'],
+          desc: 'Foam and carbon airframe with a removable wing for transport. The sensor bay is in the belly, protected on landing.', ex: V(0, 0, 0) },
+          g => { const w = M(COL.white, { roughness: .7 });
+            const f = cylX(g, 6, 90, w, 0, 9, 0, 16); f.scale.z = 1.2; cylX(g, 6, 12, w, 51, 9, 0, 16, .5);
+            box(g, 26, 2, 190, w, 4, 14, 0); for (const z of [-95, 95]) box(g, 18, 6, 1.4, M(COL.five), 0, 16, z);
+            box(g, 14, 1.4, 50, w, -40, 11, 0); box(g, 14, 16, 1.4, w, -42, 17, 0);
+            cyl(g, 2.6, 5, M(COL.motor), -48, 9, 0, 16).rotation.z = Math.PI / 2; const p = box(g, 1, 30, 2, M(COL.motor), -51.5, 9, 0); props.push(p); p.userData.axis = 'x'; })
+      ] },
+    vtol: { label: 'VTOL', node: 'A-3', nodes: ['T-SITE1', 'A-3', 'X-6', 'R-NAV2'],
+      blurb: 'Takes off and lands like a quad, then flies the survey like a plane. Large-site range without a runway, and it can land on a dock.',
+      mount: { sensor: V(8, 2.5, 0), gnss: V(-6, 14, 0), radio: V(-28, 10, 0), bat: V(14, 10, 0), fc: V(-8, 9, 0) }, endurance: 60, speed: 16,
+      build: () => [
+        part({ id: 'fuse', name: 'Fuselage, wing and tail', group: 'Airframe', color: COL.white, nodes: ['A-3'],
+          desc: 'Same airframe as the fixed-wing, with two booms under the wing for the lift motors.', ex: V(0, 0, 0) },
+          g => { const w = M(COL.white, { roughness: .7 });
+            const f = cylX(g, 6, 90, w, 0, 9, 0, 16); f.scale.z = 1.2;
+            box(g, 26, 2, 190, w, 4, 14, 0); for (const z of [-95, 95]) box(g, 18, 6, 1.4, M(COL.five), 0, 16, z);
+            box(g, 14, 1.4, 50, w, -40, 11, 0); box(g, 14, 16, 1.4, w, -42, 17, 0);
+            cyl(g, 2.6, 5, M(COL.motor), -48, 9, 0, 16).rotation.z = Math.PI / 2; const p = box(g, 1, 30, 2, M(COL.motor), -51.5, 9, 0); props.push(p); p.userData.axis = 'x'; }),
+        part({ id: 'booms', name: 'Lift booms and motors', group: 'Airframe', color: COL.arm, nodes: ['A-3'],
+          desc: 'Four lift motors on two booms for vertical takeoff and landing. They stop and fold flat once it is flying on the wing.', ex: V(0, 12, 0) },
+          g => { for (const z of [-38, 38]) { box(g, 90, 3, 3, M(COL.arm), 2, 12, z); rotor(g, 44, 14, z, 17); rotor(g, -40, 14, z, 17); } })
+      ] }
+  };
+
+  // ---------- shared avionics ----------
+  function shared(f) {
+    const m = f.mount;
+    return [
+      part({ id: 'fc', name: 'Flight controller + companion computer', group: 'Avionics', color: COL.fc, nodes: ['R-CTL2', 'T-AI1'],
+        desc: 'PX4 or ArduPilot flight controller plus a small computer that plans the grid from the site boundary, checks image quality in flight, and re-flies any gaps before landing.', ex: V(0, 0, 30) },
+        g => { box(g, 12, 2, 10, M(COL.fc), m.fc.x, m.fc.y, m.fc.z); box(g, 4, 1.4, 4, M(0x202428), m.fc.x - 2, m.fc.y + 1.6, m.fc.z); }),
+      part({ id: 'bat', name: 'Flight battery', group: 'Avionics', color: COL.bat, nodes: ['R-PWR1'],
+        desc: 'Swappable smart battery. The mission planner splits big sites into one flight per battery and resumes where it stopped.', ex: V(0, 25, 0) },
+        g => { box(g, 16, 5, 9, M(COL.bat), m.bat.x, m.bat.y, m.bat.z); }),
+      part({ id: 'gnss', name: 'RTK GNSS antenna', group: 'Avionics', color: COL.gnss, nodes: ['R-NAV2', 'R-NAV1'],
+        desc: 'Survey-grade GNSS with RTK corrections from the base station, so every photo is tagged to about 2 cm. Fewer ground targets needed.', ex: V(0, 30, 0) },
+        g => { cyl(g, .6, m.gnss.y - 12, M(COL.motor), m.gnss.x, (m.gnss.y + 12) / 2, m.gnss.z, 8); cyl(g, 4.5, 2, M(COL.gnss), m.gnss.x, m.gnss.y, m.gnss.z, 32); }),
+      part({ id: 'radio', name: 'R-COM5 radio (airborne)', group: 'Avionics', color: COL.radio, nodes: ['R-COM5', 'R-COM2'],
+        desc: 'The OASA radio in its light airborne frame: encrypted control, live preview and mission progress on TAK, with antennas pointing down at the ground station.', ex: V(-20, 0, 0) },
+        g => { box(g, 9, 3, 7, M(COL.radio, { metalness: .5 }), m.radio.x, m.radio.y, m.radio.z);
+          for (let i = 0; i < 3; i++) { const a = i * 2 * Math.PI / 3; box(g, .3, 4, 1.2, M(COL.five), m.radio.x + 2 * Math.cos(a), m.radio.y - 3.5, m.radio.z + 2 * Math.sin(a)); } })
+    ];
+  }
+
+  // ---------- sensors ----------
+  const sensors = {
+    camera: { label: 'Mapping camera', node: 'X-6', nodes: ['X-1', 'X-6'], gsd: '1.5 cm/px', what: 'Orthophoto, 3D mesh and terrain',
+      desc: 'Large-sensor camera with a mechanical shutter on a downward gimbal. Photos with 80% overlap become the orthophoto, terrain model and 3D mesh.',
+      build: s => g => { cyl(g, 3.5, 2, M(COL.motor), s.x, s.y + 1.5, s.z, 16); box(g, 7, 6, 8, M(COL.lidar), s.x, s.y - 3, s.z); cyl(g, 2.6, 2, M(COL.lens, { roughness: .2 }), s.x, s.y - 6.6, s.z, 20); } },
+    lidar: { label: 'LiDAR', node: 'X-3', nodes: ['X-3', 'X-6'], gsd: '200 pts/m²', what: 'Bare-earth terrain under trees',
+      desc: 'Lightweight open LiDAR that sees through gaps in leaves to the ground, for terrain under trees and brush and for measuring vegetation height.',
+      build: s => g => { box(g, 8, 3, 8, M(COL.motor), s.x, s.y, s.z); cyl(g, 4, 6, M(COL.lidar), s.x, s.y - 4.5, s.z, 28); cyl(g, 4.1, 1.2, M(COL.five, { emissive: 0x331100 }), s.x, s.y - 4, s.z, 28); } },
+    multi: { label: 'Multispectral', node: 'T-SITE3', nodes: ['X-1', 'T-SITE3'], gsd: '4 cm/px', what: 'Plant health and vegetation types',
+      desc: 'Five narrow-band cameras plus a sun sensor on top. Separates grass, weeds, brush and stressed plants, which feeds the mow and cut zones in the work plan.',
+      build: s => g => { box(g, 9, 4, 9, M(COL.purple), s.x, s.y - 1, s.z); for (const [dx, dz] of [[-2, -2], [2, -2], [-2, 2], [2, 2], [0, 0]]) cyl(g, 1.2, 1.2, M(COL.lens, { roughness: .2 }), s.x + dx, s.y - 3.4, s.z + dz, 12); } },
+    thermal: { label: 'Thermal', node: 'X-2', nodes: ['X-2'], gsd: '8 cm/px', what: 'Heat map, people and animals',
+      desc: 'Thermal camera paired with a small visual camera. Finds people and animals before a robot works an area, and spots wet ground or hot equipment.',
+      build: s => g => { cyl(g, 3.5, 2, M(COL.motor), s.x, s.y + 1.5, s.z, 16); box(g, 8, 6, 8, M(COL.thermal), s.x, s.y - 3, s.z); cyl(g, 2.2, 2, M(0x111111, { roughness: .2 }), s.x - 1.5, s.y - 6.6, s.z, 20); cyl(g, 1.2, 2, M(COL.lens, { roughness: .2 }), s.x + 2, s.y - 6.6, s.z, 12); } }
+  };
+
+  // ---------- assembly ----------
+  const drone = new THREE.Group(); scene.add(drone);
+  let active = [], curFrame = 'quad', curSensor = 'camera', view = 'build', selected = null, explode = 0;
+  function rebuild() {
+    active.forEach(p => drone.remove(p.obj)); props.length = 0;
+    const f = frames[curFrame], s = sensors[curSensor];
+    active = [...f.build(), ...shared(f),
+      part({ id: 'sensor', name: s.label, group: 'Sensor', color: { camera: COL.lens, lidar: COL.lidar, multi: COL.purple, thermal: COL.thermal }[curSensor], nodes: s.nodes, desc: s.desc, ex: V(0, -25, 0) }, s.build(f.mount.sensor))];
+    active.forEach(p => { p.base = p.obj.position.clone(); drone.add(p.obj); });
+    applyExplode(); select(null); renderList(); updateMission();
+    document.getElementById('hudFrame').textContent = f.label;
+    document.getElementById('hudSensor').textContent = s.label;
+    press('#frames', curFrame); press('#sensors', curSensor);
+  }
+  const press = (sel, k) => document.querySelectorAll(sel + ' button').forEach(b => b.setAttribute('aria-pressed', b.dataset.k === k));
+  function applyExplode() { const e = view === 'build' ? explode : 0; active.forEach(p => p.obj.position.copy(p.base).addScaledVector(p.ex, e)); }
+
+  // ---------- mission scene (1 unit = 0.5 m) ----------
+  const mission = new THREE.Group(); mission.visible = false; scene.add(mission);
+  const W = 400, D = 260, ALT = 120, SPACING = 20; // 200 x 130 m site, 60 m height, 10 m line spacing (70% side overlap)
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(W + 120, D + 120), M(0x8aa86b, { roughness: 1 })); ground.rotation.x = -Math.PI / 2; mission.add(ground);
+  const zone = (w, d, x, z, c, o = .9) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), M(c, { roughness: 1, transparent: o < 1, opacity: o })); m.rotation.x = -Math.PI / 2; m.position.set(x, .3, z); mission.add(m); return m; };
+  zone(W, D, 0, 0, 0x7fa35a); zone(150, 110, 110, -60, 0x5c7a3c); zone(120, 80, -120, 70, 0x6a8f45);
+  const keep = zone(70, 50, -40, -70, 0xd62f2f, .35);
+  const pond = new THREE.Mesh(new THREE.CircleGeometry(28, 40), M(0x4d7fa8, { roughness: .2 })); pond.rotation.x = -Math.PI / 2; pond.position.set(-40, .5, -70); mission.add(pond);
+  for (let i = 0; i < 14; i++) { const t = new THREE.Group(); const x = 60 + (i % 5) * 22 + (i * 37 % 11), z = -110 + Math.floor(i / 5) * 24 + (i * 13 % 9);
+    cyl(t, 1.5, 10, M(0x6b4f33), 0, 5, 0, 8); cyl(t, 0, 22, M(0x3e6b33), 0, 20, 0, 10, 9); t.position.set(x, 0, z); mission.add(t); }
+  // boundary
+  const bpts = [V(-W / 2, 1, -D / 2), V(W / 2, 1, -D / 2), V(W / 2, 1, D / 2), V(-W / 2, 1, D / 2), V(-W / 2, 1, -D / 2)];
+  mission.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(bpts), new THREE.LineBasicMaterial({ color: 0xd2611c })));
+  // ground control targets
+  for (const [x, z] of [[-180, -110], [180, -110], [180, 110], [-180, 110], [0, 0]]) { const g = new THREE.Group();
+    box(g, 6, .6, 6, M(COL.white), 0, .6, 0); box(g, 3, .8, 3, M(0x111111), -1.5, .7, -1.5); box(g, 3, .8, 3, M(0x111111), 1.5, .7, 1.5); g.position.set(x, 0, z); mission.add(g); }
+  // RTK base station + ground station + G-10
+  const base = new THREE.Group(); for (let i = 0; i < 3; i++) { const a = i * 2 * Math.PI / 3; const l = box(base, 1, 18, 1, M(COL.skid), Math.cos(a) * 3, 9, Math.sin(a) * 3); l.rotation.z = Math.cos(a) * .2; l.rotation.x = -Math.sin(a) * .2; }
+  cyl(base, 4, 2, M(COL.gnss), 0, 19, 0, 24); base.position.set(-230, 0, 150); mission.add(base);
+  const g10 = new THREE.Group(); box(g10, 20, 6, 14, M(0x58656f), 0, 6, 0); for (const z of [-7, 7]) box(g10, 22, 6, 4, M(0x262a2f), 0, 3, z); box(g10, 6, 8, 16, M(0xe0a21b), 13, 4, 0); g10.position.set(-200, 0, 120); mission.add(g10);
+  // flight lines
+  const path = []; let flip = false;
+  for (let z = -D / 2 + 10; z <= D / 2 - 10; z += SPACING) { const xs = flip ? [W / 2 + 20, -W / 2 - 20] : [-W / 2 - 20, W / 2 + 20]; path.push(V(xs[0], ALT, z), V(xs[1], ALT, z)); flip = !flip; }
+  const lineCount = path.length / 2;
+  const pl = new THREE.Line(new THREE.BufferGeometry().setFromPoints(path), new THREE.LineDashedMaterial({ color: 0xd2611c, dashSize: 6, gapSize: 4 })); pl.computeLineDistances(); mission.add(pl);
+  const foot = new THREE.Mesh(new THREE.PlaneGeometry(44, 66), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .28, depthWrite: false })); foot.rotation.x = -Math.PI / 2; mission.add(foot);
+  const covered = []; // camera footprints left behind
+  const segLens = []; let total = 0; for (let i = 0; i < path.length - 1; i++) { const l = path[i].distanceTo(path[i + 1]); segLens.push(l); total += l; }
+  let travel = 0, lastDrop = -1;
+
+  const statsHtml = () => { const f = frames[curFrame], s = sensors[curSensor];
+    const mins = Math.round(total * .5 / f.speed / 60 + 3);
+    return `<div class="stats"><div><b>2.6 ha</b>site</div><div><b>60 m</b>height</div><div><b>${lineCount}</b>flight lines</div><div><b>70 / 80%</b>side / front overlap</div><div><b>${s.gsd}</b>detail</div><div><b>~${mins} min</b>${mins > f.endurance ? '2 batteries' : 'one battery'}</div></div>`; };
+  function updateMission() { if (view === 'mission') select(null); }
+
+  // ---------- info / list ----------
+  const info = document.getElementById('info');
+  const hex = c => '#' + c.toString(16).padStart(6, '0');
+  function select(p) {
+    if (selected) selected.obj.traverse(m => m.isMesh && m.material.emissive && m.material.emissive.setHex(0));
+    selected = p;
+    if (p) p.obj.traverse(m => { if (m.isMesh && m.material.emissive) m.material.emissive.setHex(0x5a2a0a); });
+    const f = frames[curFrame], s = sensors[curSensor];
+    if (p) info.innerHTML = `<h2>${p.name}</h2><p>${p.desc}</p><div class="nodes">${p.nodes.map(n => `<span class="chip">${n}</span>`).join('')}</div>`;
+    else if (view === 'mission') info.innerHTML = `<h2>Survey mission: ${s.what.toLowerCase()}</h2><p>The drone plans a back-and-forth grid from the site boundary, flies it at a fixed height, and tags each capture with RTK position. Ground targets check accuracy; the result is an OASA-SITE bundle with keep-out zones (the pond) that the G-10 robot works from.</p>${statsHtml()}<div class="nodes">${['T-SITE1', 'T-SITE2', 'T-SITE3', 'R-NAV2'].map(n => `<span class="chip">${n}</span>`).join('')}</div>`;
+    else info.innerHTML = `<h2>${f.label} with ${s.label.toLowerCase()}</h2><p>${f.blurb}</p><div class="nodes">${f.nodes.map(n => `<span class="chip">${n}</span>`).join('')}</div>`;
+    document.querySelectorAll('#parts li').forEach(li => li.setAttribute('aria-selected', !!p && li.dataset.id === p.id));
+  }
+  const list = document.getElementById('parts');
+  function renderList() {
+    list.innerHTML = '';
+    active.forEach(p => {
+      const li = document.createElement('li'); li.dataset.id = p.id; li.tabIndex = 0; li.setAttribute('role', 'option');
+      li.innerHTML = `<span class="sw" style="background:${hex(p.color)}"></span><span>${p.name}</span><span class="grp">${p.group.toLowerCase()}</span>`;
+      const go = () => select(selected === p ? null : p);
+      li.addEventListener('click', go); li.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+      list.appendChild(li);
+    });
+  }
+
+  // ---------- views ----------
+  const orbit = { theta: 0.85, phi: 1.12, radius: 260, target: V(0, 10, 0) };
+  const views = { build: 'Close-up', mission: 'Survey mission' };
+  function setView(k) {
+    view = k; mission.visible = k === 'mission'; if (grid) grid.visible = k === 'build';
+    if (k === 'build') { drone.position.set(0, curFrame === 'quad' ? 0 : 12, 0); drone.rotation.set(0, 0, 0); drone.scale.setScalar(1); orbit.radius = curFrame === 'quad' ? 220 : 340; orbit.target.set(0, 10, 0); orbit.phi = 1.12; }
+    else { drone.scale.setScalar(.45); orbit.radius = 820; orbit.target.set(0, 30, 0); orbit.phi = .95; covered.forEach(c => mission.remove(c)); covered.length = 0; travel = 0; lastDrop = -1; }
+    document.getElementById('explodeRow').hidden = k !== 'build';
+    document.getElementById('hudScale').textContent = k === 'build' ? 'Grid 20 cm · concept only' : 'Site 200 × 130 m · drone not to scale';
+    applyExplode(); press('#views', k); select(null);
+  }
+
+  function missionStep(dt) {
+    travel = (travel + dt * 60) % total;
+    let d = travel, i = 0; while (d > segLens[i]) { d -= segLens[i]; i++; }
+    const a = path[i], b = path[i + 1], t = d / segLens[i];
+    const pos = a.clone().lerp(b, t);
+    drone.position.copy(pos);
+    const yaw = Math.atan2(-(b.z - a.z), b.x - a.x); drone.rotation.y = yaw;
+    foot.position.set(pos.x, .8, pos.z); foot.rotation.z = yaw;
+    const onLine = i % 2 === 0 && Math.abs(pos.x) < W / 2;
+    foot.visible = onLine;
+    const idx = Math.floor(travel / 14);
+    if (onLine && idx !== lastDrop) { lastDrop = idx; const c = foot.clone(); c.material = foot.material.clone(); c.material.opacity = .08; c.position.y = .6 + covered.length * .002; mission.add(c); covered.push(c);
+      if (covered.length > 900) mission.remove(covered.shift()); }
+    if (travel < 2 && covered.length) { covered.forEach(c => mission.remove(c)); covered.length = 0; }
+  }
+
+  // ---------- controls ----------
+  const ptrs = new Map(); let pinch0 = 0, moved = 0;
+  const cv = renderer.domElement;
+  const clampR = r => Math.min(1800, Math.max(50, r));
+  cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); moved = 0;
+    if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); } });
+  cv.addEventListener('pointermove', e => { if (!ptrs.has(e.pointerId)) return; const p = ptrs.get(e.pointerId); const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    p.x = e.clientX; p.y = e.clientY; moved += Math.abs(dx) + Math.abs(dy);
+    if (ptrs.size === 1) { orbit.theta -= dx * 0.008; orbit.phi = Math.min(Math.PI / 2 - .02, Math.max(.12, orbit.phi - dy * 0.008)); }
+    else if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); if (pinch0) orbit.radius = clampR(orbit.radius * pinch0 / d); pinch0 = d; } });
+  cv.addEventListener('pointerup', e => { const was = ptrs.size; ptrs.delete(e.pointerId); if (was === 1 && moved < 6) pick(e); });
+  cv.addEventListener('pointercancel', e => ptrs.delete(e.pointerId));
+  cv.addEventListener('wheel', e => { e.preventDefault(); orbit.radius = clampR(orbit.radius * (1 + Math.sign(e.deltaY) * 0.08)); }, { passive: false });
+  const ray = new THREE.Raycaster();
+  function pick(e) {
+    const r = cv.getBoundingClientRect();
+    ray.setFromCamera({ x: ((e.clientX - r.left) / r.width) * 2 - 1, y: -((e.clientY - r.top) / r.height) * 2 + 1 }, camera);
+    const hit = ray.intersectObjects(drone.children, true).find(h => h.object.userData.part);
+    select(hit ? (selected === hit.object.userData.part ? null : hit.object.userData.part) : null);
+  }
+
+  const mk = (id, obj, fn) => { const el = document.getElementById(id); Object.entries(obj).forEach(([k, t]) => { const b = document.createElement('button'); b.dataset.k = k;
+    b.innerHTML = typeof t === 'string' ? t : (t.node ? `${t.label}<small>${t.node}</small>` : t.label); b.addEventListener('click', () => fn(k)); el.appendChild(b); }); };
+  mk('frames', frames, k => { curFrame = k; rebuild(); setView(view); });
+  mk('sensors', sensors, k => { curSensor = k; rebuild(); });
+  mk('views', views, setView);
+  document.getElementById('explode').addEventListener('input', e => { explode = +e.target.value; applyExplode(); });
+  const spin = document.getElementById('spin'), fly = document.getElementById('fly');
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) fly.checked = false;
+
+  function resize() { const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  new ResizeObserver(resize).observe(stage);
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+  new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  applyTheme(); rebuild(); setView('build'); resize();
+  let last = performance.now();
+  (function loop(now) {
+    const dt = Math.min(.05, ((now || last) - last) / 1000); last = now || last;
+    if (fly.checked) props.forEach(p => { if (p.userData.axis === 'x') p.rotation.x += 0.9; else p.rotation.y += 0.9; });
+    if (view === 'mission' && fly.checked) missionStep(dt);
+    if (spin.checked && !ptrs.size) orbit.theta += 0.004;
+    const { theta, phi, radius, target } = orbit;
+    camera.position.set(target.x + radius * Math.sin(phi) * Math.sin(theta), target.y + radius * Math.cos(phi), target.z + radius * Math.sin(phi) * Math.cos(theta));
+    camera.lookAt(target); renderer.render(scene, camera); requestAnimationFrame(loop);
+  })();
+})();
+</script>
+</body>
+</html>

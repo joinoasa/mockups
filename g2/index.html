@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>G-2 Legged Robots</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: same bench layout as the R-COM5 and G-10 viewers — 3D stage left, spec panel right; stacks on phones */
+:root {
+  --bg: #eef1f3; --panel: #ffffff; --fg: #1b232b; --muted: #5c6873; --line: #d5dce2;
+  --accent: #d2611c; --accent-soft: #fbe7da; --stage: #e3e8ec; --grid: #b9c3cb;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12171c; --panel: #192027; --fg: #e4e9ee; --muted: #93a0ac; --line: #2a343e;
+  --accent: #f08a4b; --accent-soft: #3a2518; --stage: #0f1418; --grid: #33404b; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12171c; --panel: #192027; --fg: #e4e9ee; --muted: #93a0ac; --line: #2a343e;
+  --accent: #f08a4b; --accent-soft: #3a2518; --stage: #0f1418; --grid: #33404b; color-scheme: dark }
+html, body { height: 100%; margin: 0; }
+*, *::before, *::after { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--display); }
+.app { display: grid; grid-template-columns: minmax(0, 1fr) 350px; gap: 16px; height: 100%;
+  padding-block: 16px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); box-sizing: border-box; }
+.stage { position: relative; background: var(--stage); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; min-height: 360px; touch-action: none; }
+.stage canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+.stage canvas:active { cursor: grabbing; }
+.hud { position: absolute; left: 12px; top: 12px; right: 12px; display: flex; justify-content: space-between; gap: 8px; pointer-events: none; flex-wrap: wrap; }
+.tag { font: 600 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); background: var(--panel); border: 1px solid var(--line); padding: 6px 8px; border-radius: 3px; }
+.tag b { color: var(--accent); font-weight: 600; }
+.hint { position: absolute; left: 12px; bottom: 12px; font: 11px/1.4 var(--mono); color: var(--muted); pointer-events: none; }
+.side { display: flex; flex-direction: column; gap: 14px; min-width: 0; overflow-y: auto; }
+h1 { font-size: 22px; font-weight: 800; margin: 0; letter-spacing: -.01em; text-wrap: balance; }
+.sub { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 4px 0 0; }
+.label { font: 600 10.5px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+.btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.btns button { font: 600 12.5px/1 var(--display); color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 8px 10px; cursor: pointer; }
+.btns button[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+button:focus-visible, input:focus-visible, li:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.row { display: flex; align-items: center; gap: 10px; font-size: 13px; flex-wrap: wrap; }
+.row input[type=range] { flex: 1; accent-color: var(--accent); }
+.row label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.info { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 12px 14px; }
+.info h2 { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
+.info p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.info .nodes { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { font: 600 11px/1 var(--mono); padding: 4px 6px; border-radius: 3px; background: var(--accent-soft); color: var(--accent); }
+ul.parts { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+ul.parts li { display: flex; align-items: center; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--line); font-size: 13px; cursor: pointer; }
+ul.parts li:hover { background: var(--panel); }
+ul.parts li[aria-selected="true"] { background: var(--accent-soft); }
+.sw { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+ul.parts .grp { margin-left: auto; font: 10.5px/1 var(--mono); color: var(--muted); }
+.note { font-size: 12px; color: var(--muted); line-height: 1.5; margin: 0; }
+@media (max-width: 760px) {
+  .app { grid-template-columns: 1fr; height: auto; }
+  .stage { height: 62vh; }
+  .side { overflow: visible; }
+}
+.back { font: 600 12px/1 var(--mono); color: var(--accent); text-decoration: none; }
+.back:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="stage" id="stage">
+    <div class="hud">
+      <span class="tag">G-2 · <b id="hudType">Dog</b> · <b id="hudLoad">No payload</b></span>
+      <span class="tag">Grid 20 cm · concept only</span>
+    </div>
+    <div class="hint">Drag to rotate · scroll or pinch to zoom · tap a part</div>
+  </div>
+
+  <aside class="side">
+    <a class="back" href="../">← All OASA mockups</a>
+    <div>
+      <h1>Legged robots for extreme terrain</h1>
+      <p class="sub">Two open legged platforms for ground that tracks can't cross: a 4-legged dog for speed and carrying, and a 6-legged spider that always keeps three feet down. Both share the payload rails, radio and e-stop used on G-10. Block shapes only; sizes are rough guesses.</p>
+    </div>
+
+    <div>
+      <p class="label">Body</p>
+      <div class="btns" id="types"></div>
+    </div>
+
+    <div>
+      <p class="label">Payload on the rails</p>
+      <div class="btns" id="loads"></div>
+    </div>
+
+    <div>
+      <p class="label">View</p>
+      <div class="row"><span>Assembled</span><input id="explode" type="range" min="0" max="1" step="0.01" value="0" aria-label="Exploded view"><span>Exploded</span></div>
+      <div class="row" style="margin-top:8px"><label><input type="checkbox" id="walk"> Walk in place</label><label><input type="checkbox" id="spin"> Turntable</label></div>
+    </div>
+
+    <div class="info" id="info"></div>
+
+    <div>
+      <p class="label">Parts on this build</p>
+      <ul class="parts" id="parts" role="listbox" aria-label="Parts"></ul>
+    </div>
+
+    <p class="note">Walk in place shows each body's basic gait: the dog trots (diagonal pairs), the spider uses a tripod gait (three feet down at all times). Node IDs match the OASA tech tree; the dog and spider split is the new idea for G-2.</p>
+  </aside>
+</div>
+
+<script src="../lib/three.min.js"></script>
+<script>
+(function () {
+  const stage = document.getElementById('stage');
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  stage.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(38, 1, 1, 5000);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 0.85));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.75); sun.position.set(200, 400, 260); scene.add(sun);
+  const fill = new THREE.DirectionalLight(0xffffff, 0.3); fill.position.set(-260, 100, -200); scene.add(fill);
+  let grid;
+  function applyTheme() {
+    renderer.setClearColor(new THREE.Color(css('--stage')));
+    if (grid) scene.remove(grid);
+    grid = new THREE.GridHelper(800, 40, new THREE.Color(css('--grid')), new THREE.Color(css('--grid')));
+    grid.material.transparent = true; grid.material.opacity = 0.55; grid.position.y = -0.05; scene.add(grid);
+  }
+
+  const M = (color, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.6, metalness: 0.1 }, o));
+  const COL = { shell: 0x58656f, link: 0x9aa4ad, motor: 0x30363d, foot: 0x262a2f, bat: 0x3c7dd9, rail: 0xb0b8bf, stop: 0xd62f2f, yellow: 0xe8b923,
+    sensor: 0x1f252b, radio: 0x9aa4ad, five: 0xd2611c, accent: 0xd2611c, green: 0x3d8b4f, ghost: 0xaab4bd, purple: 0x8a5cc7, white: 0xe6e9ec };
+  const V = (x, y, z) => new THREE.Vector3(x, y, z);
+  const box = (g, w, h, d, mat, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); g.add(m); return m; };
+  const cyl = (g, r, h, mat, x = 0, y = 0, z = 0, seg = 24, r2) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r2 ?? r, h, seg), mat); m.position.set(x, y, z); g.add(m); return m; };
+  const cylZ = (...a) => { const m = cyl(...a); m.rotation.x = Math.PI / 2; return m; };
+  function part(spec, build) {
+    const g = new THREE.Group(); build(g);
+    const p = Object.assign({ obj: g, ex: spec.ex || V(0, 0, 0) }, spec);
+    g.traverse(m => { if (m.isMesh) m.userData.part = p; });
+    return p;
+  }
+
+  // A leg: hip (yaw) -> femur pivot (pitch) -> tibia pivot (pitch). Local +x points along the leg.
+  function makeLeg(L, yaw, femur, tibia, coxa) {
+    const hip = new THREE.Group(); hip.rotation.y = yaw;
+    const mot = M(COL.motor, { metalness: .4 }), lnk = M(COL.link, { metalness: .4 });
+    cyl(hip, 4.2, 7, mot, 0, 0, 0, 20);
+    const fp = new THREE.Group(); fp.position.x = coxa; hip.add(fp);
+    cylZ(fp, 4.6, 8, mot, 0, 0, 0, 20);
+    box(fp, L[0], 4.5, 4, lnk, L[0] / 2, 0, 0);
+    const tp = new THREE.Group(); tp.position.x = L[0]; fp.add(tp);
+    cylZ(tp, 3.8, 7, mot, 0, 0, 0, 20);
+    box(tp, L[1], 3.4, 3, lnk, L[1] / 2, 0, 0);
+    const foot = new THREE.Mesh(new THREE.SphereGeometry(2.8, 16, 12), M(COL.foot, { roughness: .95 })); foot.position.x = L[1]; tp.add(foot);
+    return { hip, fp, tp, yaw, femur, tibia };
+  }
+
+  // ---------- bodies ----------
+  const types = {
+    dog: { label: 'Dog (4 legs)', top: 68, nodes: ['G-2', 'R-CTL2', 'R-NAV3'],
+      blurb: 'Quadruped for speed and carrying loads over rocks, stairs, rubble and steep slopes. Trots on diagonal pairs and can step over obstacles about knee high.',
+      gait: 'trot' },
+    spider: { label: 'Spider (6 legs)', top: 38, nodes: ['G-2', 'R-CTL2', 'R-NAV3'],
+      blurb: 'Hexapod that walks with three feet always down, so it stays stable on loose scree, boulders, deep gaps and slopes too steep for the dog. Slower, but very hard to tip and it keeps walking if a leg fails.',
+      gait: 'tripod' }
+  };
+
+  let legs = [];
+  function buildBody(k) {
+    legs = [];
+    const out = [];
+    if (k === 'dog') {
+      out.push(part({ id: 'body', name: 'Body and battery', group: 'Body', color: COL.shell, nodes: ['G-2', 'R-PWR1'],
+        desc: 'Sealed body holding the swappable battery, compute and motor drivers. Long and narrow so the legs swing freely underneath.', ex: V(0, 20, 0) },
+        g => { box(g, 72, 16, 30, M(COL.shell, { metalness: .3 }), 0, 60, 0); box(g, 40, 10, 22, M(COL.bat), -4, 60, 0).visible = true; }));
+      const lp = part({ id: 'legs', name: 'Legs (3 joints each)', group: 'Body', color: COL.link, nodes: ['G-2'],
+        desc: 'Four legs, each with a hip, thigh and knee motor. Same leg design front and back, so one spare fits any corner.', ex: V(0, 0, 0) },
+        g => { for (const x of [28, -28]) for (const z of [-19, 19]) {
+          const l = makeLeg([26, 28], 0, -(Math.PI / 2 + 0.4), 0.9, 0); l.hip.rotation.y = 0; l.hip.position.set(x, 52, z);
+          l.hip.children[0].rotation.x = Math.PI / 2; l.fp.position.x = 0; l.base = l.hip.position.clone(); l.side = Math.sign(z); l.phase = (x > 0) === (z > 0) ? 0 : Math.PI;
+          g.add(l.hip); legs.push(l); } });
+      out.push(lp);
+      out.push(part({ id: 'head', name: 'Sensor head', group: 'Body', color: COL.sensor, nodes: ['X-1', 'X-3', 'T-AI1'],
+        desc: 'Stereo cameras and a small LiDAR at the front for footstep planning and obstacle and person detection.', ex: V(20, 10, 0) },
+        g => { box(g, 10, 12, 22, M(COL.sensor), 40, 62, 0); for (const z of [-6, 6]) cyl(g, 1.8, 1, M(0x5c8fd9, { roughness: .2 }), 45.2, 63, z, 16).rotation.z = Math.PI / 2; }));
+    } else {
+      out.push(part({ id: 'body', name: 'Body and battery', group: 'Body', color: COL.shell, nodes: ['G-2', 'R-PWR1'],
+        desc: 'Low, round body that sits close to the ground with the battery in the middle. A low centre of gravity is what makes it hard to tip.', ex: V(0, 20, 0) },
+        g => { const b = cyl(g, 24, 12, M(COL.shell, { metalness: .3 }), 0, 32, 0, 6); b.rotation.y = Math.PI / 6; cyl(g, 14, 8, M(COL.bat), 0, 32, 0, 6).rotation.y = Math.PI / 6; }));
+      const lp = part({ id: 'legs', name: 'Legs (3 joints each)', group: 'Body', color: COL.link, nodes: ['G-2'],
+        desc: 'Six identical legs, each with hip, thigh and knee motors. It can lose one or two legs and still walk home.', ex: V(0, 0, 0) },
+        g => { const angs = [Math.PI / 3, Math.PI / 2, 2 * Math.PI / 3];
+          [1, -1].forEach(side => angs.forEach((a, i) => {
+            const ang = side * a; // angle around y from +x
+            const l = makeLeg([26, 40], 0, 0.5, -2.0, 5);
+            l.yaw0 = -ang; l.hip.rotation.y = l.yaw0;
+            l.hip.position.set(22 * Math.cos(ang), 30, 22 * Math.sin(ang) * 1);
+            l.hip.position.z = 22 * Math.sin(ang);
+            l.base = l.hip.position.clone(); l.dir = V(Math.cos(ang), 0, Math.sin(ang)); l.phase = ((i + (side > 0 ? 0 : 1)) % 2) ? Math.PI : 0;
+            g.add(l.hip); legs.push(l); })); });
+      out.push(lp);
+      out.push(part({ id: 'head', name: 'Sensor head', group: 'Body', color: COL.sensor, nodes: ['X-1', 'X-3', 'T-AI1'],
+        desc: 'Cameras and LiDAR on the front edge for footstep planning. The body can turn on the spot, so it scans by turning.', ex: V(20, 10, 0) },
+        g => { box(g, 8, 8, 18, M(COL.sensor), 24, 36, 0); for (const z of [-5, 5]) cyl(g, 1.6, 1, M(0x5c8fd9, { roughness: .2 }), 28.2, 37, z, 16).rotation.z = Math.PI / 2; }));
+    }
+    const top = types[k].top;
+    const rl = k === 'dog' ? 64 : 34;
+    out.push(part({ id: 'rails', name: 'Payload rails', group: 'Shared', color: COL.rail, nodes: ['T-PAY1', 'G-10'],
+      desc: 'The same rails and connector as the G-10 tracked platform, so payloads move between tracked and legged robots.', ex: V(0, 20, 0) },
+      g => { for (const z of [-10, 10]) box(g, rl, 2.4, 3, M(COL.rail, { metalness: .7 }), -2, top + 1.2, z); }));
+    out.push(part({ id: 'radio', name: 'R-COM5 radio', group: 'Shared', color: COL.radio, nodes: ['R-COM5', 'R-COM2'],
+      desc: 'The OASA radio for encrypted control, video and mesh relay. Mounted at the back to keep weight off the head.', ex: V(-10, 30, 0) },
+      g => { const x = k === 'dog' ? -26 : -14; box(g, 14, 7, 11, M(COL.radio, { metalness: .5 }), x, top + 6, 0);
+        for (let i = 0; i < 3; i++) { const a = i * 2 * Math.PI / 3 + Math.PI / 6; const b = box(g, .4, 5, 1.6, M(COL.five), x + 3 * Math.cos(a), top + 12, 3 * Math.sin(a)); b.rotation.y = -a; } }));
+    out.push(part({ id: 'estop', name: 'E-stop', group: 'Shared', color: COL.stop, nodes: ['T-SAFE1'],
+      desc: 'Big red button on top: the legs lock in a stable stance and the robot sits down. The remote e-stop over the radio does the same.', ex: V(0, 30, 0) },
+      g => { const x = k === 'dog' ? -6 : 8, z = k === 'dog' ? 0 : -16; cyl(g, 3.4, 1.6, M(COL.yellow), x, top + .8, z); cyl(g, 2.8, 2.6, M(COL.stop, { roughness: .4 }), x, top + 2.9, z, 20); }));
+    return out;
+  }
+
+  // ---------- payloads ----------
+  const loads = {
+    none: { label: 'No payload', build: () => [] },
+    cargo: { label: 'Cargo pack', build: k => [part({ id: 'cargo', name: 'Cargo pack', group: 'Payload', color: COL.green, nodes: ['M-3', 'O-10'],
+      desc: 'Saddle box for supplies, water or medical kits carried to people over ground no vehicle can reach.', ex: V(0, 40, 0) },
+      g => { const t = types[k].top; box(g, k === 'dog' ? 30 : 28, 14, 28, M(COL.green), k === 'dog' ? 8 : 4, t + 9.4, 0); })] },
+    arm: { label: 'Grabber arm', build: k => [part({ id: 'arm', name: 'Grabber arm', group: 'Payload', color: COL.accent, nodes: ['M-1'],
+      desc: 'Arm on the rails for opening doors, moving debris, taking samples or picking things up from the ground.', ex: V(10, 40, 0) },
+      g => { const t = types[k].top, x = k === 'dog' ? 14 : 4; const m = M(COL.accent);
+        cyl(g, 5, 5, M(COL.motor), x, t + 4.6, 0, 20); const a = box(g, 4, 30, 4, m, x + 6, t + 18, 0); a.rotation.z = -.4;
+        const b = box(g, 3.4, 24, 3.4, m, x + 20, t + 22, 0); b.rotation.z = 1.2; for (const z of [-2.5, 2.5]) box(g, 1.2, 8, 1.6, M(COL.foot), x + 31, t + 15, z); })] },
+    lidar: { label: 'Mapping mast', build: k => [part({ id: 'lidar', name: '360° LiDAR and thermal mast', group: 'Payload', color: COL.sensor, nodes: ['X-3', 'X-2', 'X-6'],
+      desc: 'Raised LiDAR and thermal camera for 3D mapping of caves, ruins or disaster sites, and for finding people by body heat.', ex: V(0, 50, 0) },
+      g => { const t = types[k].top, x = k === 'dog' ? 10 : 4; box(g, 3, 22, 3, M(COL.link), x, t + 13, 0); cyl(g, 6, 8, M(COL.sensor), x, t + 28, 0, 28); box(g, 6, 5, 8, M(COL.purple), x, t + 35, 0); })] },
+    relay: { label: 'Relay dropper', build: k => [part({ id: 'relay', name: 'Relay dropper', group: 'Payload', color: COL.five, nodes: ['M-5', 'T-NET2'],
+      desc: 'Magazine of mesh relay pucks dropped along the way, so the robot stays connected deep in tunnels or behind ridges.', ex: V(0, 40, 0) },
+      g => { const t = types[k].top, x = k === 'dog' ? 6 : 6; cyl(g, 6.5, 26, M(COL.ghost, { transparent: true, opacity: .4 }), x, t + 15, 0, 20); for (let i = 0; i < 5; i++) cyl(g, 5.6, 3.6, M(COL.five), x, t + 4.6 + i * 4.6, 0, 20); })] }
+  };
+
+  const root = new THREE.Group(); scene.add(root);
+  let active = [], curType = 'dog', curLoad = 'none', selected = null, explode = 0;
+  function setType(k) { curType = k; rebuild(); }
+  function setLoad(k) { curLoad = k; rebuild(); }
+  function rebuild() {
+    active.forEach(p => root.remove(p.obj));
+    active = [...buildBody(curType), ...loads[curLoad].build(curType)];
+    active.forEach(p => { p.base = p.obj.position.clone(); root.add(p.obj); });
+    applyExplode(); select(null); renderList();
+    document.getElementById('hudType').textContent = types[curType].label;
+    document.getElementById('hudLoad').textContent = loads[curLoad].label;
+    document.querySelectorAll('#types button').forEach(b => b.setAttribute('aria-pressed', b.dataset.k === curType));
+    document.querySelectorAll('#loads button').forEach(b => b.setAttribute('aria-pressed', b.dataset.k === curLoad));
+  }
+  function applyExplode() {
+    active.forEach(p => { if (p.id !== 'legs') p.obj.position.copy(p.base).addScaledVector(p.ex, explode); });
+    legs.forEach(l => {
+      const d = curType === 'dog' ? V(Math.sign(l.base.x) * .5, 0, l.side) : l.dir;
+      l.hip.position.copy(l.base).addScaledVector(d, explode * 25);
+    });
+  }
+  function pose(t) {
+    legs.forEach(l => {
+      if (t === null) { l.fp.rotation.z = l.femur; l.tp.rotation.z = l.tibia; if (l.yaw0 !== undefined) l.hip.rotation.y = l.yaw0; return; }
+      if (curType === 'dog') {
+        const s = Math.sin(t + l.phase);
+        l.fp.rotation.z = l.femur + 0.28 * s;
+        l.tp.rotation.z = l.tibia + 0.55 * Math.max(0, Math.cos(t + l.phase));
+      } else {
+        l.hip.rotation.y = l.yaw0 + 0.22 * Math.sin(t + l.phase);
+        l.fp.rotation.z = l.femur + 0.35 * Math.max(0, Math.cos(t + l.phase));
+        l.tp.rotation.z = l.tibia;
+      }
+    });
+  }
+
+  const info = document.getElementById('info');
+  const hex = c => '#' + c.toString(16).padStart(6, '0');
+  function select(p) {
+    if (selected) selected.obj.traverse(m => m.isMesh && m.material.emissive && m.material.emissive.setHex(0));
+    selected = p;
+    if (p) p.obj.traverse(m => { if (m.isMesh && m.material.emissive) m.material.emissive.setHex(0x5a2a0a); });
+    const t = types[curType];
+    info.innerHTML = p
+      ? `<h2>${p.name}</h2><p>${p.desc}</p><div class="nodes">${p.nodes.map(n => `<span class="chip">${n}</span>`).join('')}</div>`
+      : `<h2>${t.label}</h2><p>${t.blurb}</p><div class="nodes">${t.nodes.map(n => `<span class="chip">${n}</span>`).join('')}</div>`;
+    document.querySelectorAll('#parts li').forEach(li => li.setAttribute('aria-selected', !!p && li.dataset.id === p.id));
+  }
+  const list = document.getElementById('parts');
+  function renderList() {
+    list.innerHTML = '';
+    active.forEach(p => {
+      const li = document.createElement('li'); li.dataset.id = p.id; li.tabIndex = 0; li.setAttribute('role', 'option');
+      li.innerHTML = `<span class="sw" style="background:${hex(p.color)}"></span><span>${p.name}</span><span class="grp">${p.group.toLowerCase()}</span>`;
+      const go = () => select(selected === p ? null : p);
+      li.addEventListener('click', go); li.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+      list.appendChild(li);
+    });
+  }
+
+  const orbit = { theta: 0.85, phi: 1.12, radius: 260, target: V(0, 32, 0) };
+  const ptrs = new Map(); let pinch0 = 0, moved = 0;
+  const cv = renderer.domElement;
+  const clampR = r => Math.min(800, Math.max(50, r));
+  cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); moved = 0;
+    if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); } });
+  cv.addEventListener('pointermove', e => { if (!ptrs.has(e.pointerId)) return; const p = ptrs.get(e.pointerId); const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    p.x = e.clientX; p.y = e.clientY; moved += Math.abs(dx) + Math.abs(dy);
+    if (ptrs.size === 1) { orbit.theta -= dx * 0.008; orbit.phi = Math.min(Math.PI / 2 - .02, Math.max(.15, orbit.phi - dy * 0.008)); }
+    else if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); if (pinch0) orbit.radius = clampR(orbit.radius * pinch0 / d); pinch0 = d; } });
+  cv.addEventListener('pointerup', e => { const was = ptrs.size; ptrs.delete(e.pointerId); if (was === 1 && moved < 6) pick(e); });
+  cv.addEventListener('pointercancel', e => ptrs.delete(e.pointerId));
+  cv.addEventListener('wheel', e => { e.preventDefault(); orbit.radius = clampR(orbit.radius * (1 + Math.sign(e.deltaY) * 0.08)); }, { passive: false });
+  const ray = new THREE.Raycaster();
+  function pick(e) {
+    const r = cv.getBoundingClientRect();
+    ray.setFromCamera({ x: ((e.clientX - r.left) / r.width) * 2 - 1, y: -((e.clientY - r.top) / r.height) * 2 + 1 }, camera);
+    const hit = ray.intersectObjects(root.children, true).find(h => h.object.userData.part);
+    select(hit ? (selected === hit.object.userData.part ? null : hit.object.userData.part) : null);
+  }
+
+  const tb = document.getElementById('types');
+  Object.entries(types).forEach(([k, t]) => { const b = document.createElement('button'); b.dataset.k = k; b.textContent = t.label; b.addEventListener('click', () => setType(k)); tb.appendChild(b); });
+  const lb = document.getElementById('loads');
+  Object.entries(loads).forEach(([k, t]) => { const b = document.createElement('button'); b.dataset.k = k; b.textContent = t.label; b.addEventListener('click', () => setLoad(k)); lb.appendChild(b); });
+  document.getElementById('explode').addEventListener('input', e => { explode = +e.target.value; applyExplode(); });
+  const spin = document.getElementById('spin'), walk = document.getElementById('walk');
+
+  function resize() { const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  new ResizeObserver(resize).observe(stage);
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+  new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  applyTheme(); setType('dog'); resize();
+  let t = 0;
+  (function loop() {
+    if (walk.checked) t += 0.06; else t = 0;
+    pose(walk.checked ? t : null);
+    if (spin.checked && !ptrs.size) orbit.theta += 0.004;
+    const { theta, phi, radius, target } = orbit;
+    camera.position.set(target.x + radius * Math.sin(phi) * Math.sin(theta), target.y + radius * Math.cos(phi), target.z + radius * Math.sin(phi) * Math.cos(theta));
+    camera.lookAt(target); renderer.render(scene, camera); requestAnimationFrame(loop);
+  })();
+})();
+</script>
+</body>
+</html>
