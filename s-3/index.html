@@ -48,7 +48,7 @@ h1 { font-size: 22px; font-weight: 800; margin: 0; letter-spacing: -.01em; text-
 .btns { display: flex; flex-wrap: wrap; gap: 6px; }
 .btns button { font: 600 12.5px/1 var(--display); color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 8px 10px; cursor: pointer; }
 .btns button[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
-.btns button:disabled { opacity: .4; cursor: not-allowed; }
+.btns button.bump { border-style: dashed; }
 .btns button small { font: 600 10px/1 var(--mono); opacity: .65; margin-left: 4px; }
 button:focus-visible, input:focus-visible, li:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .row { display: flex; align-items: center; gap: 10px; font-size: 13px; flex-wrap: wrap; }
@@ -330,8 +330,8 @@ ul.parts .grp { margin-left: auto; font: 10.5px/1 var(--mono); color: var(--mute
   function updateButtons() {
     styleBtns.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.k === style));
     sizeBtns.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.k === size));
-    typeBtns.querySelectorAll('button').forEach(b => { const ok = allowed(b.dataset.k); b.disabled = !ok;
-      b.title = ok ? '' : (b.dataset.k === 'cleanup' ? 'The bow conveyor needs the open space between two hulls' : 'Too small to carry this payload'); });
+    typeBtns.querySelectorAll('button').forEach(b => { const ok = allowed(b.dataset.k); b.classList.toggle('bump', !ok);
+      b.title = ok ? '' : (b.dataset.k === 'cleanup' ? 'Switches to the catamaran: the bow conveyor needs the open space between two hulls' : 'Switches to the 2.5 m boat: the 1 m boat is too small for this payload'); });
   }
   // a pier and a person for scale
   const pier = new THREE.Group(); scene.add(pier);
@@ -340,7 +340,7 @@ ul.parts .grp { margin-left: auto; font: 10.5px/1 var(--mono); color: var(--mute
   for (const z of [-7, 7]) box(person, 10, 82, 10, M(0x2f3e55), 0, 41, z); box(person, 16, 62, 30, M(COL.stripe), 0, 113, 0); cyl(person, 10, 22, M(0xc8a27c), 0, 156, 0, 16);
   for (const z of [-19, 19]) box(person, 8, 58, 8, M(COL.stripe), 0, 112, z);
   const typeBtns = document.getElementById('types');
-  Object.entries(types).forEach(([k, t]) => { const b = document.createElement('button'); b.dataset.k = k; b.innerHTML = `${t.label}<small>${t.node}</small>`; b.addEventListener('click', () => setType(k)); typeBtns.appendChild(b); });
+  Object.entries(types).forEach(([k, t]) => { const b = document.createElement('button'); b.dataset.k = k; b.innerHTML = `${t.label}<small>${t.node}</small>`; b.addEventListener('click', () => { if (k === 'cleanup') style = 'cat'; if ((k === 'carrier' || k === 'gateway') && size === 'small') size = 'medium'; setType(k); }); typeBtns.appendChild(b); });
   function setType(k) {
     if (!allowed(k)) k = 'survey';
     cur = k; parts.forEach(p => p.obj.parent && p.obj.parent.remove(p.obj)); parts = []; spinners.length = 0; debris.length = 0;

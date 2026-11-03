@@ -48,6 +48,7 @@ h1 { font-size: 22px; font-weight: 800; margin: 0; letter-spacing: -.01em; text-
 .btns { display: flex; flex-wrap: wrap; gap: 6px; }
 .btns button { font: 600 12.5px/1 var(--display); color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 8px 10px; cursor: pointer; }
 .btns button[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.btns button.bump { border-style: dashed; }
 .btns button small { font: 600 10px/1 var(--mono); opacity: .65; margin-left: 4px; }
 button:focus-visible, input:focus-visible, li:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .row { display: flex; align-items: center; gap: 10px; font-size: 13px; flex-wrap: wrap; }
@@ -117,7 +118,7 @@ ul.parts .grp { margin-left: auto; font: 10.5px/1 var(--mono); color: var(--mute
       <ul class="parts" id="parts" role="listbox" aria-label="Parts"></ul>
     </div>
 
-    <p class="note">The blimp is drawn much closer to the ground than it would fly (usually 150 m to 3 km up) so you can see both. The person and mast below are to scale with the blimp. Node IDs match the OASA tech tree.</p>
+    <p class="note">The disaster blimp needs at least the 10 m size and the mothership at least 25 m, so choosing them on a smaller blimp switches the size up. The blimp is drawn much closer to the ground than it would fly (usually 150 m to 3 km up) so you can see both. The person and mast below are to scale with the blimp. Node IDs match the OASA tech tree.</p>
   </aside>
 </div>
 
@@ -280,7 +281,7 @@ ul.parts .grp { margin-left: auto; font: 10.5px/1 var(--mono); color: var(--mute
   const order = ['small', 'medium', 'large', 'xl'];
   const allowed = (k, sz = size) => !types[k].min || order.indexOf(sz) >= order.indexOf(types[k].min);
   const mkBtns = (id, obj, on) => { const el = document.getElementById(id); Object.entries(obj).forEach(([k, t]) => { const b = document.createElement('button'); b.dataset.k = k; b.innerHTML = t.node ? `${t.label}<small>${t.node}</small>` : `${t.label}<small>${t.L} m</small>`; b.addEventListener('click', () => on(k)); el.appendChild(b); }); return el; };
-  const typeBtns = mkBtns('types', types, k => setType(k));
+  const typeBtns = mkBtns('types', types, k => { if (!allowed(k)) size = types[k].min; setType(k); });
   const sizeBtns = mkBtns('sizes', SIZES, k => { size = k; setType(cur); });
   let alt = 0, explode = 0, selected = null;
   function setType(k) {
@@ -295,7 +296,7 @@ ul.parts .grp { margin-left: auto; font: 10.5px/1 var(--mono); color: var(--mute
     orbit.radius = Math.max(2600, 2600 * s * .9); orbit.target.set(0, alt * .55, 200);
     document.getElementById('hudType').textContent = SZ().label + ' ' + types[k].label.toLowerCase();
     document.getElementById('phase').textContent = types[k].phase;
-    typeBtns.querySelectorAll('button').forEach(b => { b.setAttribute('aria-pressed', b.dataset.k === k); const ok = allowed(b.dataset.k); b.disabled = !ok; b.title = ok ? '' : 'Needs a larger blimp to carry it'; });
+    typeBtns.querySelectorAll('button').forEach(b => { b.setAttribute('aria-pressed', b.dataset.k === k); const ok = allowed(b.dataset.k); b.title = ok ? '' : `Switches to the ${SIZES[types[b.dataset.k].min].L} m blimp, the smallest that can carry it`; b.classList.toggle('bump', !ok); });
     sizeBtns.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.k === size));
     applyExplode(); select(null); renderList(); animate(0, clock);
   }
