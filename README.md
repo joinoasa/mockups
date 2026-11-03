@@ -14,6 +14,7 @@ Rough 3D concept mockups of nodes on the [OASA tech tree](https://joinoasa.org/t
 | [`t-dock/`](t-dock/) | T-DOCK1–3 | Drone docks: field, battery swap, mobile hive and buoy |
 | [`t-node2/`](t-node2/) | T-NODE1–2 | Mesh node kits and a mesh view with best-path routing |
 | [`s-3/`](s-3/) | S-3 | Solar boat and the water robots built on it (S-1, S-4, S-5, S-6, U-4) |
+| [`u-5/`](u-5/) | U-1–U-7 | Underwater robots and a reef scene |
 | [`l-5/`](l-5/) | L-4–L-7 | Blimps: tethered, solar, wildfire watch, disaster relay and mothership |
 
 These are block-level concepts for discussion. Shapes and sizes are guesses, not designs.

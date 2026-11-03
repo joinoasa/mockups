@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>U-5 Underwater Robots</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: same bench layout as the other OASA viewers — 3D stage left, spec panel right; stacks on phones */
+:root {
+  --bg: #eef1f3; --panel: #ffffff; --fg: #1b232b; --muted: #5c6873; --line: #d5dce2;
+  --accent: #d2611c; --accent-soft: #fbe7da; --stage: #e3e8ec; --grid: #b9c3cb; --ok: #2f8a4f;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12171c; --panel: #192027; --fg: #e4e9ee; --muted: #93a0ac; --line: #2a343e;
+  --accent: #f08a4b; --accent-soft: #3a2518; --stage: #0f1418; --grid: #33404b; --ok: #5cc07f; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12171c; --panel: #192027; --fg: #e4e9ee; --muted: #93a0ac; --line: #2a343e;
+  --accent: #f08a4b; --accent-soft: #3a2518; --stage: #0f1418; --grid: #33404b; --ok: #5cc07f; color-scheme: dark }
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--fg); font-family: var(--display); }
+.app { display: grid; grid-template-columns: minmax(0, 1fr) 350px; gap: 16px; height: 100%;
+  padding-block: 16px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.stage { position: relative; background: var(--stage); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; min-height: 360px; touch-action: none; }
+.stage canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+.stage canvas:active { cursor: grabbing; }
+.hud { position: absolute; left: 12px; top: 12px; right: 12px; display: flex; justify-content: space-between; gap: 8px; pointer-events: none; flex-wrap: wrap; }
+.tag { font: 600 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); background: var(--panel); border: 1px solid var(--line); padding: 6px 8px; border-radius: 3px; }
+.tag b { color: var(--accent); font-weight: 600; }
+.status { position: absolute; left: 12px; bottom: 34px; display: flex; gap: 8px; align-items: center; pointer-events: none; flex-wrap: wrap; }
+.status .tag { color: var(--fg); }
+.status .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-right: 6px; vertical-align: -1px; }
+.status .dot.ok { background: var(--ok); }
+.meter { width: 70px; height: 8px; border: 1px solid var(--line); background: var(--panel); border-radius: 2px; display: inline-block; vertical-align: -1px; margin-left: 6px; overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--ok); }
+.hint { position: absolute; left: 12px; bottom: 12px; font: 11px/1.4 var(--mono); color: var(--muted); pointer-events: none; }
+.side { display: flex; flex-direction: column; gap: 14px; min-width: 0; overflow-y: auto; }
+.back { font: 600 12px/1 var(--mono); color: var(--accent); text-decoration: none; }
+.back:hover { text-decoration: underline; }
+h1 { font-size: 22px; font-weight: 800; margin: 0; letter-spacing: -.01em; text-wrap: balance; }
+.sub { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 4px 0 0; }
+.label { font: 600 10.5px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+.btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.btns button { font: 600 12.5px/1 var(--display); color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 8px 10px; cursor: pointer; }
+.btns button[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.btns button small { font: 600 10px/1 var(--mono); opacity: .65; margin-left: 4px; }
+button:focus-visible, input:focus-visible, li:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.row { display: flex; align-items: center; gap: 10px; font-size: 13px; flex-wrap: wrap; }
+.row input[type=range] { flex: 1; accent-color: var(--accent); }
+.row label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.info { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 12px 14px; }
+.info h2 { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
+.info p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.info .nodes { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { font: 600 11px/1 var(--mono); padding: 4px 6px; border-radius: 3px; background: var(--accent-soft); color: var(--accent); }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.stats div { font: 11px/1.3 var(--mono); color: var(--muted); }
+.stats b { display: block; font: 600 14px/1.2 var(--mono); color: var(--fg); font-variant-numeric: tabular-nums; }
+ul.parts { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+ul.parts li { display: flex; align-items: center; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--line); font-size: 13px; cursor: pointer; }
+ul.parts li:hover { background: var(--panel); }
+ul.parts li[aria-selected="true"] { background: var(--accent-soft); }
+.sw { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+ul.parts .grp { margin-left: auto; font: 10.5px/1 var(--mono); color: var(--muted); }
+.note { font-size: 12px; color: var(--muted); line-height: 1.5; margin: 0; }
+@media (max-width: 760px) {
+  .app { grid-template-columns: 1fr; height: auto; }
+  .stage { height: 62vh; }
+  .side { overflow: visible; }
+}
+</style>
+
+</head>
+<body>
+<div class="app">
+  <div class="stage" id="stage">
+    <div class="hud">
+      <span class="tag">U · <b id="hudType">Autonomous sub</b></span>
+      <span class="tag" id="hudScale">Underwater · concept only</span>
+    </div>
+    <div class="status"><span class="tag"><span class="dot ok"></span><span id="phase">Surveying the bottom</span></span></div>
+    <div class="hint">Drag to rotate · scroll or pinch to zoom · tap a part</div>
+  </div>
+
+  <aside class="side">
+    <a class="back" href="../">← All OASA mockups</a>
+    <div>
+      <h1>Underwater robots</h1>
+      <p class="sub">Open subs for inspection, mapping and reef restoration. Radio doesn't work underwater, so they talk by cable or by sound, through a gateway at the surface that joins them to the OASA mesh. Block shapes only; sizes are rough guesses.</p>
+    </div>
+
+    <div>
+      <p class="label">Robot</p>
+      <div class="btns" id="types"></div>
+    </div>
+
+    <div>
+      <p class="label">View</p>
+      <div class="row"><label><input type="checkbox" id="run" checked> Animate</label><label><input type="checkbox" id="spin"> Turntable</label></div>
+      <div class="row" style="margin-top:10px" id="explodeRow"><span>Assembled</span><input id="explode" type="range" min="0" max="1" step="0.01" value="0" aria-label="Exploded view"><span>Exploded</span></div>
+    </div>
+
+    <div class="info" id="info"></div>
+
+    <div>
+      <p class="label">Parts</p>
+      <ul class="parts" id="parts" role="listbox" aria-label="Parts"></ul>
+    </div>
+
+    <p class="note">In the reef scene the robots are drawn larger than scale and the water is much shallower than real. The surface gateway's acoustic pulses are the encrypted modem link (U-3). Node IDs match the OASA tech tree.</p>
+  </aside>
+</div>
+
+<script src="../lib/three.min.js"></script>
+<script>
+(function () {
+  const stage = document.getElementById('stage');
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  stage.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  // a deliberate single underwater look for the stage in both themes
+  const DEEP = 0x123a52; renderer.setClearColor(DEEP); scene.fog = new THREE.FogExp2(DEEP, 0.00045);
+  const camera = new THREE.PerspectiveCamera(40, 1, 1, 30000);
+  scene.add(new THREE.HemisphereLight(0xcfe8ff, 0x1d3340, 0.95));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.6); sun.position.set(400, 2000, 300); scene.add(sun);
+  const fill = new THREE.DirectionalLight(0x9fd3ff, 0.3); fill.position.set(-600, 300, -500); scene.add(fill);
+
+  const M = (color, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.6, metalness: 0.1 }, o));
+  const COL = { yellow: 0xe8b923, orange: 0xd2611c, white: 0xe6e9ec, dark: 0x30363d, frame: 0x8d979f, foam: 0xf2c94c, lens: 0x5c8fd9, bat: 0x3c7dd9, sand: 0xc9b98f, rock: 0x6f6a5c,
+    coral1: 0xe36f6f, coral2: 0xf2a65a, coral3: 0xb57ad6, weed: 0x3d8b4f, solar: 0x1f3557, steel: 0x8d979f, green: 0x3d8b4f, purple: 0x8a5cc7, light: 0xffffff };
+  const V = (x, y, z) => new THREE.Vector3(x, y, z);
+  const box = (g, w, h, d, mat, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); g.add(m); return m; };
+  const cyl = (g, r, h, mat, x = 0, y = 0, z = 0, seg = 24, r2) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r2 ?? r, h, seg), mat); m.position.set(x, y, z); g.add(m); return m; };
+  const cylX = (...a) => { const m = cyl(...a); m.rotation.z = Math.PI / 2; return m; };
+  const cylZ = (...a) => { const m = cyl(...a); m.rotation.x = Math.PI / 2; return m; };
+  const sph = (g, r, mat, x = 0, y = 0, z = 0, sx = 1, sy = 1, sz = 1) => { const m = new THREE.Mesh(new THREE.SphereGeometry(r, 24, 16), mat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); g.add(m); return m; };
+  const root = new THREE.Group(); scene.add(root);
+  let parts = [];
+  function part(spec, build, parent) {
+    const g = new THREE.Group(); build(g);
+    const p = Object.assign({ obj: g, ex: spec.ex || V(0, 0, 0) }, spec);
+    g.traverse(m => { if (m.isMesh) m.userData.part = p; });
+    (parent || root).add(g); p.base = g.position.clone(); parts.push(p); return p;
+  }
+  const H = {}; const spinners = [];
+  const thruster = (g, x, y, z, axis, r = 5) => { const t = new THREE.Group(); t.position.set(x, y, z); g.add(t);
+    const sh = new THREE.Mesh(new THREE.CylinderGeometry(r, r, r * 1.4, 20, 1, true), M(COL.dark, { side: THREE.DoubleSide })); t.add(sh); cyl(t, r * .4, r * 1.2, M(COL.dark), 0, 0, 0, 12);
+    const pr = new THREE.Group(); t.add(pr); for (let i = 0; i < 3; i++) { const b = box(pr, r * .8, .4, r * .35, M(COL.orange), 0, 0, 0); b.geometry.translate(r * .45, 0, 0); b.rotation.y = i * 2.094; } spinners.push(pr);
+    if (axis === 'x') t.rotation.z = Math.PI / 2; if (axis === 'z') t.rotation.x = Math.PI / 2; if (axis === 'd') { t.rotation.z = Math.PI / 2; t.rotation.y = .6; } if (axis === 'e') { t.rotation.z = Math.PI / 2; t.rotation.y = -.6; }
+    return t; };
+
+  // ---------- seabed for close-ups ----------
+  const bed = new THREE.Group(); scene.add(bed);
+  { const s = new THREE.Mesh(new THREE.CircleGeometry(6000, 64), M(COL.sand, { roughness: 1 })); s.rotation.x = -Math.PI / 2; bed.add(s);
+    for (let i = 0; i < 40; i++) { const a = i * 2.39, r = 200 + (i * 53) % 1200; sph(bed, 20 + (i * 7) % 40, M(COL.rock, { roughness: 1 }), Math.cos(a) * r, 0, Math.sin(a) * r, 1.4, .5, 1); }
+    for (let i = 0; i < 30; i++) { const a = i * 1.7 + 1, r = 300 + (i * 71) % 1000; const w = cyl(bed, 2, 60 + (i % 5) * 20, M(COL.weed), Math.cos(a) * r, 40, Math.sin(a) * r, 5, 1); w.userData.sway = i; } }
+  const surface = new THREE.Mesh(new THREE.PlaneGeometry(30000, 30000), M(0x7fc6e8, { transparent: true, opacity: .35, side: THREE.DoubleSide, depthWrite: false })); surface.rotation.x = -Math.PI / 2; scene.add(surface);
+
+  // ---------- robots (cm) ----------
+  const types = {
+    rov: { label: 'Tethered ROV', node: 'U-1', y: 120, radius: 260, nodes: ['U-1', 'U-2', 'R-CTL1'], phase: 'Inspecting · live video up the tether',
+      blurb: 'A small open-frame ROV on a cable, built on ArduSub. The tether carries power down and live HD video up, so a pilot (or a script) can inspect hulls, docks, pipes and dams for hours.',
+      stats: [['45 cm', 'long'], ['100 m', 'depth rating'], ['up to 100 m', 'tether']],
+      build: () => {
+        part({ id: 'frame', name: 'Open frame and buoyancy foam', group: 'ROV', color: COL.foam, nodes: ['U-1'],
+          desc: 'HDPE frame with syntactic foam on top, so it floats level and slightly positive: if anything fails it drifts back up.', ex: V(0, 40, 0) },
+          g => { const f = M(COL.dark); for (const z of [-17, 17]) { box(g, 46, 30, 2, f, 0, 0, z); } box(g, 44, 9, 36, M(COL.foam, { roughness: .8 }), 0, 19, 0); for (const z of [-17, 17]) box(g, 44, 2, 4, M(COL.yellow), 0, -15, z); });
+        part({ id: 'tube', name: 'Electronics tube', group: 'ROV', color: COL.white, nodes: ['U-1', 'R-CTL1'],
+          desc: 'Acrylic pressure tube with the autopilot (ArduSub), the tether interface and the camera behind a clear dome at the front.', ex: V(0, 0, 40) },
+          g => { cylX(g, 7, 34, M(COL.white, { transparent: true, opacity: .55, roughness: .1 }), 0, 4, 0, 24); sph(g, 7, M(COL.lens, { transparent: true, opacity: .6, roughness: .1 }), 17, 4, 0, .6, 1, 1); box(g, 20, 3, 8, M(0x2f6b4f), -2, 4, 0); });
+        part({ id: 'bat', name: 'Battery tube', group: 'ROV', color: COL.bat, nodes: ['R-PWR1'], desc: 'Swappable battery in its own sealed tube, for running off the tether\'s data line only.', ex: V(0, -30, 0) },
+          g => { cylX(g, 4.5, 24, M(COL.bat, { metalness: .4 }), -4, -8, 0, 20); });
+        part({ id: 'thr', name: 'Six thrusters', group: 'ROV', color: COL.orange, nodes: ['U-1'],
+          desc: 'Four angled horizontal thrusters for moving and turning in any direction, and two vertical ones for depth. Open, brushless and repairable.', ex: V(-30, 0, 0) },
+          g => { thruster(g, 18, -2, 13, 'd'); thruster(g, 18, -2, -13, 'e'); thruster(g, -18, -2, 13, 'e'); thruster(g, -18, -2, -13, 'd'); thruster(g, 0, 14, 21, 'y', 4.5); thruster(g, 0, 14, -21, 'y', 4.5); });
+        part({ id: 'lights', name: 'Lights and gripper', group: 'ROV', color: COL.light, nodes: ['M-1', 'X-1'],
+          desc: 'Two dimmable lights and a simple gripper for picking up samples, lost gear or debris.', ex: V(30, 0, 0) },
+          g => { for (const z of [-11, 11]) cylX(g, 3, 5, M(COL.light, { emissive: 0xaaaa88 }), 22, 10, z, 16); box(g, 10, 3, 3, M(COL.frame), 24, -10, 0); for (const z of [-2.5, 2.5]) box(g, 6, 1.5, 1.2, M(COL.dark), 30, -12, z); });
+        part({ id: 'tether', name: 'Fiber and power tether', group: 'ROV', color: COL.yellow, nodes: ['U-2'], desc: 'Neutrally buoyant tether up to the surface boat or gateway (U-4).', ex: V(0, 0, 0) },
+          g => { H.tether = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: COL.yellow })); g.add(H.tether); });
+      } },
+    auv: { label: 'Autonomous sub', node: 'U-5', y: 150, radius: 420, nodes: ['U-5', 'R-NAV3', 'U-3', 'X-6'], phase: 'Surveying the bottom',
+      blurb: 'A torpedo-shaped sub that runs a mission on its own with no cable: mapping the seabed, checking pipelines or counting fish. It navigates without GPS and checks in by sound, then surfaces to send its data by radio.',
+      stats: [['1.8 m', 'long'], ['8–12 h', 'endurance'], ['300 m', 'depth rating']],
+      build: () => {
+        const body = M(COL.yellow, { roughness: .4 });
+        part({ id: 'nose', name: 'Nose: forward sonar and camera', group: 'AUV', color: COL.yellow, nodes: ['X-4', 'X-1'], desc: 'Forward-looking sonar to avoid obstacles, and a camera with lights for close looks.', ex: V(60, 0, 0) },
+          g => { sph(g, 12, body, 70, 0, 0, 2, 1, 1); cylX(g, 4, 3, M(COL.lens, { roughness: .1 }), 93, 0, 0, 16); });
+        part({ id: 'payload', name: 'Payload section: side-scan sonar', group: 'AUV', color: COL.dark, nodes: ['X-6', 'S-1'], desc: 'Swappable middle section. This one has side-scan sonar that paints a picture of the bottom in strips either side.', ex: V(20, 0, 0) },
+          g => { cylX(g, 12, 40, M(COL.dark), 50, 0, 0, 28); for (const z of [-12.2, 12.2]) box(g, 30, 4, .6, M(COL.frame), 50, -3, z); });
+        part({ id: 'nav', name: 'Navigation: DVL and inertial', group: 'AUV', color: COL.orange, nodes: ['R-NAV3', 'R-NAV1'],
+          desc: 'A Doppler velocity log looks at the seabed to measure speed, and an inertial unit tracks heading. Together they navigate with no GPS, corrected by acoustic fixes from the gateway.', ex: V(0, -30, 0) },
+          g => { cylX(g, 12, 26, body, 17, 0, 0, 28); cyl(g, 5, 4, M(COL.orange), 17, -12, 0, 16); });
+        part({ id: 'bat', name: 'Battery section', group: 'AUV', color: COL.bat, nodes: ['R-PWR1'], desc: 'Pressure-tolerant battery in the longest section. It charges on a dock or the gateway.', ex: V(-10, 0, 0) },
+          g => { cylX(g, 12, 50, body, -21, 0, 0, 28); cylX(g, 9, 44, M(COL.bat, { transparent: true, opacity: .7 }), -21, 0, 0, 20); });
+        part({ id: 'mast', name: 'Mast: GNSS, radio and modem', group: 'AUV', color: COL.white, nodes: ['U-3', 'R-COM5', 'R-NAV1'],
+          desc: 'A short mast on top with GNSS and a small R-COM5 radio for when it surfaces, and the acoustic modem (U-3) for talking while underwater.', ex: V(0, 30, 0) },
+          g => { box(g, 6, 18, 3, M(COL.white), -10, 16, 0); cyl(g, 2.6, 3, M(COL.white), -10, 26, 0, 12); cyl(g, 5, 6, M(COL.dark), 30, 14, 0, 16); });
+        part({ id: 'tail', name: 'Tail: fins and propeller', group: 'AUV', color: COL.orange, nodes: ['U-5'], desc: 'Cross fins that move for steering and depth, and one shrouded propeller.', ex: V(-40, 0, 0) },
+          g => { const c = cylX(g, 6, 30, body, -61, 0, 0, 28, 12); for (let i = 0; i < 4; i++) { const f = new THREE.Group(); f.rotation.x = i * Math.PI / 2; f.position.x = -70; g.add(f); box(f, 14, 1, 14, M(COL.orange), 0, 0, 13); }
+            thruster(g, -80, 0, 0, 'x', 6); });
+      } },
+    fish: { label: 'Fish sub', node: 'U-6', y: 150, radius: 380, nodes: ['U-6', 'U-5', 'X-1'], phase: 'Swimming quietly past the reef',
+      blurb: 'A sub that swims by bending its body and tail like a fish, with no propeller. It is quiet, gentle around wildlife and divers, and can slip close to reefs to film and count fish.',
+      stats: [['1.2 m', 'long'], ['4–6 h', 'endurance'], ['very quiet', 'no propeller']],
+      build: () => {
+        part({ id: 'head', name: 'Head: cameras and sensors', group: 'Fish', color: COL.white, nodes: ['X-1', 'T-AI1'], desc: 'Stereo cameras as eyes, plus temperature and depth sensors. Onboard AI counts and identifies fish.', ex: V(40, 0, 0) },
+          g => { sph(g, 18, M(0x6f8ea8, { roughness: .5 }), 40, 0, 0, 1.6, 1, .8); for (const z of [-11, 11]) sph(g, 4, M(COL.lens, { roughness: .1 }), 58, 5, z); });
+        part({ id: 'spine', name: 'Flexible body and tail', group: 'Fish', color: 0x6f8ea8, nodes: ['U-6'],
+          desc: 'Four linked body segments driven by small motors, bending in a wave that runs down to the tail fin. The skin is soft silicone.', ex: V(-30, 0, 0) },
+          g => { H.segs = []; let parent = g, x0 = 14; const mat = M(0x6f8ea8, { roughness: .5 });
+            for (let i = 0; i < 4; i++) { const s = new THREE.Group(); s.position.x = i === 0 ? x0 : -22; parent.add(s); sph(s, 17 - i * 3.2, mat, -11, 0, 0, 1.2, 1 - i * .12, .75 - i * .1); H.segs.push(s); parent = s; }
+            const tail = new THREE.Group(); tail.position.x = -22; parent.add(tail); H.segs.push(tail); const tf = box(tail, 18, 34, 1.4, M(COL.orange), -8, 0, 0); tf.rotation.y = 0; });
+        part({ id: 'fins', name: 'Pectoral fins', group: 'Fish', color: COL.orange, nodes: ['U-6'], desc: 'Two side fins that pitch for climbing, diving and slow turns.', ex: V(0, 0, 40) },
+          g => { H.pecs = []; for (const z of [-1, 1]) { const f = new THREE.Group(); f.position.set(26, -6, z * 13); g.add(f); const b = box(f, 14, 1, 16, M(COL.orange), 0, 0, z * 8); H.pecs.push(f); } });
+        part({ id: 'core', name: 'Battery, computer and modem', group: 'Fish', color: COL.bat, nodes: ['R-PWR1', 'U-3', 'R-NAV3'], desc: 'Inside the front body: battery, flight computer, inertial navigation and a small acoustic modem.', ex: V(0, 35, 0) },
+          g => { box(g, 30, 10, 12, M(COL.bat), 24, 0, 0); });
+      } },
+    reef: { label: 'Reef restoration', node: 'U-7', y: 50, radius: 380, nodes: ['U-7', 'M-1', 'T-AI1', 'MS-13'], phase: 'Planting coral fragments',
+      blurb: 'A hovering work robot that replants coral fragments grown in nurseries, plug by plug, and removes invasive species. A diver can plant tens a day; a fleet of these can plant thousands.',
+      stats: [['1.4 m', 'wide'], ['40 plugs', 'per trip'], ['camera + AI', 'finds spots']],
+      build: () => {
+        part({ id: 'rframe', name: 'Frame, floats and thrusters', group: 'Reef', color: COL.foam, nodes: ['U-7', 'U-1'], desc: 'Wide, stable frame with buoyancy floats and eight thrusters, so it can hold perfectly still over the reef while working.', ex: V(0, 30, 0) },
+          g => { const f = M(COL.dark); for (const z of [-40, 40]) box(g, 120, 4, 4, f, 0, 30, z); for (const x of [-58, 58]) box(g, 4, 4, 84, f, x, 30, 0); for (const z of [-40, 40]) box(g, 100, 14, 16, M(COL.foam, { roughness: .8 }), 0, 42, z);
+            for (const [x, z] of [[-58, -40], [58, -40], [-58, 40], [58, 40]]) { thruster(g, x, 30, z, 'y', 5); thruster(g, x, 20, z, x * z > 0 ? 'd' : 'e', 5); } });
+        part({ id: 'carousel', name: 'Coral plug carousel', group: 'Reef', color: COL.coral1, nodes: ['U-7'], desc: 'Rack of nursery-grown coral fragments on small ceramic plugs, ready to place.', ex: V(0, 30, 50) },
+          g => { H.car = new THREE.Group(); H.car.position.set(-20, 18, 0); g.add(H.car); cyl(H.car, 26, 4, M(COL.white), 0, 0, 0, 24);
+            for (let i = 0; i < 12; i++) { const a = i * Math.PI / 6; const c = cyl(H.car, 2.4, 6, M(0xbfb59a), Math.cos(a) * 20, 4, Math.sin(a) * 20, 10); cyl(H.car, 0, 8, M([COL.coral1, COL.coral2, COL.coral3][i % 3]), Math.cos(a) * 20, 11, Math.sin(a) * 20, 6, 3); } });
+        part({ id: 'arm', name: 'Planting arm', group: 'Reef', color: COL.orange, nodes: ['M-1'], desc: 'Arm that takes a plug from the carousel and pushes it into a hole in the reef with a dab of epoxy.', ex: V(30, -20, 0) },
+          g => { H.arm = new THREE.Group(); H.arm.position.set(30, 22, 0); g.add(H.arm); box(H.arm, 4, 30, 4, M(COL.orange), 0, -15, 0);
+            H.plug = new THREE.Group(); H.plug.position.y = -32; H.arm.add(H.plug); cyl(H.plug, 2.4, 6, M(0xbfb59a), 0, 0, 0, 10); cyl(H.plug, 0, 8, M(COL.coral2), 0, 7, 0, 6, 3); });
+        part({ id: 'vac', name: 'Invasive species tool', group: 'Reef', color: COL.purple, nodes: ['U-7', 'T-AI1'], desc: 'Suction tube and injector for invasive species (for example crown-of-thorns starfish). The camera and AI make sure it only targets the right ones.', ex: V(-40, -10, 0) },
+          g => { const t = cyl(g, 3, 40, M(COL.purple), -50, 12, 20, 12); t.rotation.z = -.4; cyl(g, 8, 16, M(COL.purple), -40, 34, 20, 16); });
+        part({ id: 'cams', name: 'Downward cameras and lights', group: 'Reef', color: COL.lens, nodes: ['X-1', 'X-6', 'T-AI1'], desc: 'Downward stereo cameras map the reef in 3D and pick bare rock spots for planting. Lights for deeper or murky water.', ex: V(0, -20, -40) },
+          g => { box(g, 20, 8, 12, M(COL.dark), 20, 24, -22); for (const x of [14, 26]) cyl(g, 2.4, 2, M(COL.lens, { roughness: .1 }), x, 19.5, -22, 12); for (const x of [-30, 50]) cyl(g, 3, 4, M(COL.light, { emissive: 0xaaaa88 }), x, 26, -36, 12); });
+        H.planted = new THREE.Group(); H.planted.position.y = -50; root.add(H.planted);
+      } },
+    gateway: { label: 'Surface gateway', node: 'U-4', y: 0, radius: 620, nodes: ['U-4', 'U-3', 'S-2', 'R-COM5'], phase: 'Relaying between sound and radio',
+      blurb: 'A buoy that joins the water to the network. Its acoustic modem (U-3) talks to subs below, its R-COM5 radio talks to the mesh above, and it gives subs acoustic position fixes so they can navigate.',
+      stats: [['1–2 km', 'acoustic range'], ['solar', 'power'], ['encrypted', 'both links']],
+      build: () => {
+        part({ id: 'float', name: 'Float and solar', group: 'Gateway', color: COL.yellow, nodes: ['S-2', 'R-PWR2'], desc: 'Moored float with a solar ring and the battery inside.', ex: V(0, 30, 0) },
+          g => { cyl(g, 60, 34, M(COL.yellow, { roughness: .5 }), 0, 0, 0, 32); for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; const s = box(g, 34, 1.4, 20, M(COL.solar), Math.cos(a) * 44, 17.5, Math.sin(a) * 44); s.rotation.y = -a; } });
+        part({ id: 'gmast', name: 'R-COM5 radio, GNSS and light', group: 'Gateway', color: COL.white, nodes: ['R-COM5', 'R-NAV2', 'T-NET2'], desc: 'The above-water side: OASA radio to the mesh, RTK GNSS so the buoy knows exactly where it is, and a light for boats.', ex: V(0, 60, 0) },
+          g => { cyl(g, 2, 130, M(COL.frame), 0, 80, 0, 10); box(g, 14, 10, 12, M(0x9aa4ad), 0, 110, 0); for (let i = 0; i < 3; i++) { const a = i * 2.09; box(g, .5, 9, 2, M(COL.orange), 4 * Math.cos(a), 120, 4 * Math.sin(a)); } cyl(g, 5, 3, M(COL.white), 0, 146, 0, 16); cyl(g, 3, 6, M(COL.yellow, { emissive: 0x553300 }), 0, 151, 0, 12); });
+        part({ id: 'modem', name: 'Acoustic modem and positioning', group: 'Gateway', color: COL.dark, nodes: ['U-3', 'R-NAV3'], desc: 'Transducer hanging below the buoy. It carries encrypted messages by sound and measures range and bearing to each sub, giving them position fixes underwater.', ex: V(0, -40, 0) },
+          g => { cyl(g, 1.5, 120, M(COL.frame), 0, -77, 0, 8); cyl(g, 10, 20, M(COL.dark), 0, -145, 0, 20); H.pulses = []; for (let i = 0; i < 3; i++) { const r = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 16, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), M(0x9fd3ff, { transparent: true, opacity: .25, side: THREE.DoubleSide, depthWrite: false })); r.position.y = -150; g.add(r); H.pulses.push(r); } });
+        part({ id: 'mooring', name: 'Mooring', group: 'Gateway', color: COL.steel, nodes: ['S-2'], desc: 'Chain and anchor that keep the buoy in place.', ex: V(0, 0, 0) },
+          g => { cyl(g, 1, 300, M(COL.steel), 40, -170, 0, 6); box(g, 40, 20, 40, M(COL.rock), 40, -320, 0); });
+      } },
+    scene: { label: 'Reef scene', node: 'MS-13', scene: true, y: 0, radius: 2600, nodes: ['U-4', 'U-5', 'U-6', 'U-7', 'U-1', 'MS-13'], phase: 'Everyone working the reef',
+      blurb: 'All of them on one reef. The surface gateway pings the autonomous sub and the fish sub by sound, the ROV works on a tether from the solar boat, and the reef robot plants coral where the map shows bare rock.',
+      stats: [['5 robots', 'here'], ['sound + tether', 'links'], ['one network', 'to shore']], build: () => buildScene() }
+  };
+
+  // ---------- reef scene ----------
+  let SC = null;
+  function mini(kind) { const g = new THREE.Group();
+    if (kind === 'auv') { cylX(g, 12, 150, M(COL.yellow), 0, 0, 0, 20); sph(g, 12, M(COL.yellow), 75, 0, 0, 2, 1, 1); for (let i = 0; i < 4; i++) { const f = new THREE.Group(); f.rotation.x = i * Math.PI / 2; f.position.x = -70; g.add(f); box(f, 14, 1, 14, M(COL.orange), 0, 0, 13); } }
+    if (kind === 'fish') { sph(g, 18, M(0x6f8ea8), 30, 0, 0, 1.8, 1, .8); sph(g, 14, M(0x6f8ea8), -10, 0, 0, 1.6, .8, .6); const t = box(g, 18, 34, 1.4, M(COL.orange), -45, 0, 0); g.userData.tail = t; }
+    if (kind === 'reef') { for (const z of [-40, 40]) box(g, 100, 14, 16, M(COL.foam), 0, 12, z); box(g, 110, 4, 84, M(COL.dark), 0, 0, 0); cyl(g, 22, 6, M(COL.white), -20, -6, 0, 16); }
+    if (kind === 'rov') { box(g, 46, 30, 36, M(COL.dark), 0, 0, 0); box(g, 44, 9, 36, M(COL.foam), 0, 19, 0); }
+    g.scale.setScalar(2.4); return g; }
+  function buildScene() {
+    SC = {}; const g = new THREE.Group(); root.add(g); SC.g = g;
+    { const s = new THREE.Mesh(new THREE.CircleGeometry(5000, 64), M(COL.sand, { roughness: 1 })); s.rotation.x = -Math.PI / 2; g.add(s); }
+    for (let i = 0; i < 60; i++) { const a = i * 2.39, r = 120 + (i * 37) % 900; const x = Math.cos(a) * r - 200, z = Math.sin(a) * r;
+      const k = i % 4; if (k === 0) sph(g, 50 + i % 30, M(COL.rock, { roughness: 1 }), x, 0, z, 1.6, .6, 1.2);
+      else if (k === 1) { for (let j = 0; j < 5; j++) cyl(g, 4, 40 + j * 8, M(COL.coral1), x + j * 8 - 16, 20 + j * 4, z + (j % 2) * 10, 6, 2); }
+      else if (k === 2) sph(g, 30, M(COL.coral2, { roughness: .9 }), x, 15, z, 1.3, .8, 1.3);
+      else { const c = cyl(g, 0, 80, M(COL.coral3), x, 40, z, 6, 18); } }
+    SC.gw = new THREE.Group(); SC.gw.position.set(600, 1200, -300); g.add(SC.gw); cyl(SC.gw, 60, 34, M(COL.yellow), 0, 0, 0, 24); cyl(SC.gw, 2, 130, M(COL.frame), 0, 80, 0, 8); cyl(SC.gw, 1.5, 120, M(COL.frame), 0, -77, 0, 8); cyl(SC.gw, 10, 20, M(COL.dark), 0, -145, 0, 16);
+    SC.boat = new THREE.Group(); SC.boat.position.set(-900, 1200, 400); g.add(SC.boat); for (const z of [-60, 60]) box(SC.boat, 220, 30, 30, M(COL.white), 0, 0, z); box(SC.boat, 170, 3, 150, M(COL.solar), 0, 24, 0);
+    SC.auv = mini('auv'); g.add(SC.auv); SC.fish = mini('fish'); g.add(SC.fish); SC.reef = mini('reef'); SC.reef.position.set(150, 150, 250); g.add(SC.reef); SC.rov = mini('rov'); g.add(SC.rov);
+    SC.links = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineDashedMaterial({ color: 0x9fd3ff, dashSize: 30, gapSize: 20, transparent: true, opacity: .8 })); g.add(SC.links);
+    SC.tether = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: COL.yellow })); g.add(SC.tether);
+    SC.pulses = []; for (let i = 0; i < 3; i++) { const r = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 16, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2), M(0x9fd3ff, { transparent: true, opacity: .15, side: THREE.DoubleSide, depthWrite: false })); r.position.set(600, 1050, -300); g.add(r); SC.pulses.push(r); }
+  }
+
+  // ---------- switching ----------
+  let cur = 'auv', explode = 0, selected = null;
+  const typeBtns = document.getElementById('types');
+  Object.entries(types).forEach(([k, t]) => { const b = document.createElement('button'); b.dataset.k = k; b.innerHTML = `${t.label}<small>${t.node}</small>`; b.addEventListener('click', () => setType(k)); typeBtns.appendChild(b); });
+  function setType(k) {
+    cur = k; parts.forEach(p => p.obj.parent && p.obj.parent.remove(p.obj)); parts = []; spinners.length = 0; SC = null;
+    while (root.children.length) root.remove(root.children[0]); Object.keys(H).forEach(key => delete H[key]);
+    const t = types[k]; t.build();
+    root.position.y = t.scene ? 0 : (k === 'gateway' ? 0 : t.y);
+    surface.position.y = t.scene ? 1200 : k === 'gateway' ? 0 : 900; bed.position.y = t.scene ? -10 : k === 'gateway' ? -340 : 0; bed.visible = !t.scene;
+    scene.fog.density = t.scene ? .00028 : .0008;
+    orbit.radius = t.radius; orbit.target.set(0, t.scene ? 450 : (k === 'gateway' ? -40 : t.y), 0); orbit.phi = t.scene ? 1.15 : 1.35;
+    document.getElementById('hudType').textContent = t.label;
+    document.getElementById('hudScale').textContent = t.scene ? 'Reef about 25 m across · robots not to scale' : 'Underwater · concept only';
+    document.getElementById('phase').textContent = t.phase;
+    document.getElementById('explodeRow').hidden = !!t.scene;
+    typeBtns.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.k === k));
+    applyExplode(); select(null); renderList(); animate(0, clock);
+  }
+  function applyExplode() { parts.forEach(p => p.obj.position.copy(p.base).addScaledVector(p.ex, explode)); }
+
+  // ---------- motion ----------
+  let clock = 0;
+  function animate(dt, t) {
+    spinners.forEach(p => p.rotation.y += dt * 18);
+    bed.children.forEach(c => { if (c.userData.sway !== undefined) c.rotation.z = .15 * Math.sin(t * .8 + c.userData.sway); });
+    const ty = types[cur];
+    if (!ty.scene) { root.position.y = (cur === 'gateway' ? 0 : ty.y) + (cur === 'gateway' ? 4 : 3) * Math.sin(t * .7); root.rotation.y = cur === 'gateway' ? 0 : .15 * Math.sin(t * .15); }
+    if (H.tether) { const pts = []; for (let i = 0; i <= 20; i++) { const u = i / 20; pts.push(V(-20 - 160 * u, 15 + 900 * u * u, 60 * Math.sin(u * 3 + t * .3) * u)); } H.tether.geometry.setFromPoints(pts); }
+    if (H.segs) { H.segs.forEach((s, i) => s.rotation.y = (i === 0 ? .08 : .22 + i * .04) * Math.sin(t * 3 - i * .9)); }
+    if (H.pecs) H.pecs.forEach((f, i) => f.rotation.x = (i ? 1 : -1) * .2 * Math.sin(t * 1.5));
+    if (H.arm) { const k = (t * .25) % 1; const down = Math.sin(Math.min(1, k * 2) * Math.PI); H.arm.position.y = 22 - 10 * down; H.arm.rotation.z = -.3 * down; H.car.rotation.y = Math.floor(t * .25) * Math.PI / 6;
+      if (k > .48 && k < .52 && H.lastPlant !== Math.floor(t * .25) && H.planted.children.length < 14) { H.lastPlant = Math.floor(t * .25); const n = H.planted.children.length;
+        const c = new THREE.Group(); cyl(c, 2.4, 6, M(0xbfb59a), 0, 3, 0, 10); cyl(c, 0, 8, M([COL.coral1, COL.coral2, COL.coral3][n % 3]), 0, 10, 0, 6, 3); c.position.set(40 + (n % 5) * 16 - 32, 0, (Math.floor(n / 5) - 1) * 18); H.planted.add(c); } }
+    if (H.pulses) H.pulses.forEach((r, i) => { const k = ((t * .4) + i / 3) % 1; r.scale.setScalar(20 + 400 * k); r.material.opacity = .3 * (1 - k); });
+    if (SC) {
+      SC.gw.position.y = 1200 + 6 * Math.sin(t * .8); SC.boat.position.y = 1200 + 5 * Math.sin(t * .7 + 1);
+      const a = t * .08; const lane = Math.floor(((a / (Math.PI * 2)) * 6) % 6);
+      const auvX = -800 + ((t * 120) % 1600), auvZ = -400 + (Math.floor((t * 120) / 1600) % 5) * 160; const fwd = Math.floor((t * 120) / 1600) % 2 === 0;
+      SC.auv.position.set(fwd ? auvX : 800 - (auvX + 800), 300, auvZ); SC.auv.rotation.y = fwd ? 0 : Math.PI;
+      const fa = t * .25; SC.fish.position.set(-200 + 600 * Math.cos(fa), 260 + 40 * Math.sin(t * .6), 500 * Math.sin(fa)); SC.fish.rotation.y = -fa - Math.PI / 2; SC.fish.userData.tail.rotation.y = .5 * Math.sin(t * 4);
+      SC.reef.position.y = 150 + 6 * Math.sin(t * .9);
+      SC.rov.position.set(-600 + 120 * Math.sin(t * .2), 200 + 40 * Math.sin(t * .3), 200 + 120 * Math.cos(t * .2));
+      const tp = SC.boat.position.clone().add(V(0, -15, 0)), rp = SC.rov.position.clone().add(V(0, 40, 0)), mid = tp.clone().lerp(rp, .5).add(V(-150, -80, 0)); const pts = [];
+      for (let i = 0; i <= 20; i++) { const u = i / 20; pts.push(V((1 - u) ** 2 * tp.x + 2 * (1 - u) * u * mid.x + u * u * rp.x, (1 - u) ** 2 * tp.y + 2 * (1 - u) * u * mid.y + u * u * rp.y, (1 - u) ** 2 * tp.z + 2 * (1 - u) * u * mid.z + u * u * rp.z)); }
+      SC.tether.geometry.setFromPoints(pts);
+      const g0 = V(600, 1050 + 6 * Math.sin(t * .8), -300); SC.links.geometry.setFromPoints([g0, SC.auv.position.clone(), g0, SC.fish.position.clone(), g0, SC.reef.position.clone()]); SC.links.computeLineDistances();
+      SC.pulses.forEach((r, i) => { const k = ((t * .3) + i / 3) % 1; r.scale.setScalar(40 + 1300 * k); r.material.opacity = .18 * (1 - k); r.position.y = g0.y; });
+    }
+  }
+
+  // ---------- info ----------
+  const info = document.getElementById('info');
+  const hex = c => '#' + c.toString(16).padStart(6, '0');
+  function select(p) {
+    if (selected) selected.obj.traverse(m => m.isMesh && m.material.emissive && m.userData.e0 !== undefined && m.material.emissive.setHex(m.userData.e0));
+    selected = p;
+    if (p) p.obj.traverse(m => { if (m.isMesh && m.material.emissive) { if (m.userData.e0 === undefined) m.userData.e0 = m.material.emissive.getHex(); m.material.emissive.setHex(0x5a2a0a); } });
+    const t = types[cur];
+    info.innerHTML = p ? `<h2>${p.name}</h2><p>${p.desc}</p><div class="nodes">${p.nodes.map(n => `<span class="chip">${n}</span>`).join('')}</div>`
+      : `<h2>${t.label}</h2><p>${t.blurb}</p><div class="stats">${t.stats.map(([a, b]) => `<div><b>${a}</b>${b}</div>`).join('')}</div><div class="nodes">${t.nodes.map(n => `<span class="chip">${n}</span>`).join('')}</div>`;
+    document.querySelectorAll('#parts li').forEach(li => li.setAttribute('aria-selected', !!p && li.dataset.id === p.id));
+  }
+  const list = document.getElementById('parts');
+  function renderList() {
+    list.innerHTML = '';
+    if (types[cur].scene) { list.innerHTML = '<li style="cursor:default">Surface gateway, solar boat, autonomous sub, fish sub, reef robot and a tethered ROV</li>'; return; }
+    parts.forEach(p => {
+      const li = document.createElement('li'); li.dataset.id = p.id; li.tabIndex = 0; li.setAttribute('role', 'option');
+      li.innerHTML = `<span class="sw" style="background:${hex(p.color)}"></span><span>${p.name}</span><span class="grp">${p.group.toLowerCase()}</span>`;
+      const go = () => select(selected === p ? null : p);
+      li.addEventListener('click', go); li.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+      list.appendChild(li);
+    });
+  }
+
+  // ---------- controls ----------
+  const orbit = { theta: 0.9, phi: 1.35, radius: 420, target: V(0, 150, 0) };
+  const ptrs = new Map(); let pinch0 = 0, moved = 0;
+  const cv = renderer.domElement;
+  const clampR = r => Math.min(9000, Math.max(60, r));
+  cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); moved = 0;
+    if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); } });
+  cv.addEventListener('pointermove', e => { if (!ptrs.has(e.pointerId)) return; const p = ptrs.get(e.pointerId); const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    p.x = e.clientX; p.y = e.clientY; moved += Math.abs(dx) + Math.abs(dy);
+    if (ptrs.size === 1) { orbit.theta -= dx * 0.008; orbit.phi = Math.min(2.4, Math.max(.12, orbit.phi - dy * 0.008)); }
+    else if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); if (pinch0) orbit.radius = clampR(orbit.radius * pinch0 / d); pinch0 = d; } });
+  cv.addEventListener('pointerup', e => { const was = ptrs.size; ptrs.delete(e.pointerId); if (was === 1 && moved < 6) pick(e); });
+  cv.addEventListener('pointercancel', e => ptrs.delete(e.pointerId));
+  cv.addEventListener('wheel', e => { e.preventDefault(); orbit.radius = clampR(orbit.radius * (1 + Math.sign(e.deltaY) * 0.08)); }, { passive: false });
+  const ray = new THREE.Raycaster();
+  function pick(e) {
+    if (types[cur].scene) return;
+    const r = cv.getBoundingClientRect();
+    ray.setFromCamera({ x: ((e.clientX - r.left) / r.width) * 2 - 1, y: -((e.clientY - r.top) / r.height) * 2 + 1 }, camera);
+    const hit = ray.intersectObjects(root.children, true).find(h => h.object.userData.part);
+    select(hit ? (selected === hit.object.userData.part ? null : hit.object.userData.part) : null);
+  }
+  document.getElementById('explode').addEventListener('input', e => { explode = +e.target.value; applyExplode(); });
+  const run = document.getElementById('run'), spin = document.getElementById('spin');
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) run.checked = false;
+
+  function resize() { const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  new ResizeObserver(resize).observe(stage);
+
+  setType('auv'); resize();
+  let last = performance.now();
+  (function loop(now) {
+    now = now || last; const dt = Math.min(.05, (now - last) / 1000); last = now;
+    if (run.checked) { clock += dt; animate(dt, clock); }
+    if (spin.checked && !ptrs.size) orbit.theta += 0.004;
+    const { theta, phi, radius, target } = orbit;
+    camera.position.set(target.x + radius * Math.sin(phi) * Math.sin(theta), target.y + radius * Math.cos(phi), target.z + radius * Math.sin(phi) * Math.cos(theta));
+    camera.lookAt(target); renderer.render(scene, camera); requestAnimationFrame(loop);
+  })();
+})();
+</script>
+</body>
+</html>
