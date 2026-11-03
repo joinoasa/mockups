@@ -48,6 +48,7 @@ h1 { font-size: 22px; font-weight: 800; margin: 0; letter-spacing: -.01em; text-
 .btns { display: flex; flex-wrap: wrap; gap: 6px; }
 .btns button { font: 600 12.5px/1 var(--display); color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 8px 10px; cursor: pointer; }
 .btns button[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.btns button:disabled { opacity: .4; cursor: not-allowed; }
 .btns button small { font: 600 10px/1 var(--mono); opacity: .65; margin-left: 4px; }
 button:focus-visible, input:focus-visible, li:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .row { display: flex; align-items: center; gap: 10px; font-size: 13px; flex-wrap: wrap; }
@@ -95,6 +96,16 @@ ul.parts .grp { margin-left: auto; font: 10.5px/1 var(--mono); color: var(--mute
     </div>
 
     <div>
+      <p class="label">Hull style</p>
+      <div class="btns" id="styles"></div>
+    </div>
+
+    <div>
+      <p class="label">Size</p>
+      <div class="btns" id="sizes"></div>
+    </div>
+
+    <div>
       <p class="label">Boat type</p>
       <div class="btns" id="types"></div>
     </div>
@@ -125,7 +136,7 @@ ul.parts .grp { margin-left: auto; font: 10.5px/1 var(--mono); color: var(--mute
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   stage.appendChild(renderer.domElement);
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(38, 1, 1, 8000);
+  const camera = new THREE.PerspectiveCamera(38, 1, 1, 40000);
   scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 0.85));
   const sun = new THREE.DirectionalLight(0xffffff, 0.75); sun.position.set(300, 600, 360); scene.add(sun);
   const fill = new THREE.DirectionalLight(0xffffff, 0.3); fill.position.set(-360, 150, -300); scene.add(fill);
@@ -147,36 +158,63 @@ ul.parts .grp { margin-left: auto; font: 10.5px/1 var(--mono); color: var(--mute
   }
 
   // ---------- water ----------
-  const water = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000, 1, 1), M(COL.water, { transparent: true, opacity: .45, roughness: .15, depthWrite: false, side: THREE.DoubleSide }));
+  const water = new THREE.Mesh(new THREE.PlaneGeometry(30000, 30000, 1, 1), M(COL.water, { transparent: true, opacity: .45, roughness: .15, depthWrite: false, side: THREE.DoubleSide }));
   water.rotation.x = -Math.PI / 2; scene.add(water);
-  const bed = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), M(0x8c7a5b, { roughness: 1 })); bed.rotation.x = -Math.PI / 2; bed.position.y = -260; scene.add(bed);
+  const bed = new THREE.Mesh(new THREE.PlaneGeometry(30000, 30000), M(0x8c7a5b, { roughness: 1 })); bed.rotation.x = -Math.PI / 2; bed.position.y = -260; scene.add(bed);
   for (let i = 0; i < 26; i++) { const r = cyl(scene, 6 + (i * 7) % 14, 8 + (i * 5) % 10, M(0x6f6450, { roughness: 1 }), -600 + (i * 211) % 1200, -256, -500 + (i * 137) % 1000, 7); r.rotation.y = i; }
 
   // ---------- base boat (cm; +x is the bow) ----------
   const boat = new THREE.Group(); scene.add(boat);
   const spinners = []; // propellers
   const H = {};
+  // ---------- styles and sizes ----------
+  let style = 'cat', size = 'medium';
+  const STYLES = {
+    cat: { label: 'Catamaran', blurb: 'Two hulls: very stable, a wide deck for solar, and room between the hulls for tools.' },
+    tri: { label: 'Trimaran', blurb: 'A long centre hull with two small outriggers: faster and better in waves for the same power, good for long range.' },
+    sail: { label: 'Sail-assisted', blurb: 'A trimaran with a rigid wing sail that trims itself. Wind does most of the work and solar runs the electronics, so it can stay out for weeks or months.' }
+  };
+  const SIZES = {
+    small: { label: 'Small', s: .4, len: '1 m', solar: 60, bat: '0.5 kWh', endure: '1–2 days', move: 'one person carries it', payload: '10 kg' },
+    medium: { label: 'Medium', s: 1, len: '2.5 m', solar: 400, bat: '2 kWh', endure: 'days', move: 'roof rack or pickup', payload: '40 kg' },
+    large: { label: 'Large', s: 2.4, len: '6 m', solar: 2000, bat: '15 kWh', endure: 'weeks', move: 'trailer', payload: '300 kg' },
+    xl: { label: 'Extra large', s: 4.8, len: '12 m', solar: 8000, bat: '80 kWh', endure: 'weeks', move: 'harbour, crane launch', payload: '2 t' }
+  };
+  const SZ = () => SIZES[size];
+  const outerZ = () => style === 'cat' ? 60 : 82;
+  const gapZ = () => style === 'cat' ? 0 : 45;
+  function sizeStats() {
+    const z = SZ(); const endure = style === 'sail' ? (size === 'small' ? 'weeks' : 'months') : z.endure;
+    return `<div class="stats"><div><b>${z.len}</b>length</div><div><b>${z.solar >= 1000 ? (z.solar / 1000) + ' kW' : z.solar + ' W'}</b>solar</div><div><b>${z.bat}</b>battery</div><div><b>${endure}</b>at sea</div><div><b>${z.payload}</b>payload</div><div><b>${z.move}</b>transport</div></div>`;
+  }
+
   function baseBoat() {
-    part({ id: 'hulls', name: 'Twin hulls', group: 'Boat', color: COL.hull, nodes: ['S-3', 'S-1'],
-      desc: 'Two narrow hulls (a catamaran) are stable in chop, slip through the water on little power and leave a wide deck for solar. Each hull is sealed in sections, so one leak does not sink it.', ex: V(0, -30, 0) },
+    const O = outerZ(), W = 2 * O + 20;
+    part({ id: 'hulls', name: style === 'cat' ? 'Twin hulls' : 'Centre hull and outriggers', group: 'Boat', color: COL.hull, nodes: ['S-3', 'S-1'],
+      desc: style === 'cat' ? 'Two narrow hulls (a catamaran) are stable in chop, slip through the water on little power and leave a wide deck for solar. Each hull is sealed in sections, so one leak does not sink it.'
+        : 'A long, slim centre hull does most of the floating; two small outriggers (amas) keep it upright. Less drag than two full hulls, so it goes further on the same power.', ex: V(0, -30, 0) },
       g => { const m = M(COL.hull, { roughness: .45 });
-        for (const z of [-60, 60]) { box(g, 220, 30, 30, m, 0, -2, z); const bow = cyl(g, 15, 40, m, 125, -2, z, 4, 1); bow.rotation.z = Math.PI / 2; bow.rotation.x = Math.PI / 4;
-          box(g, 220, 3, 31, M(COL.stripe), 0, 8, z); } });
+        const hull = (len, w, h, y, z, bowR) => { box(g, len, h, w, m, 0, y, z); const bow = cyl(g, bowR, 40, m, len / 2 + 15, y, z, 4, 1); bow.rotation.z = Math.PI / 2; bow.rotation.x = Math.PI / 4; box(g, len, 3, w + 1, M(COL.stripe), 0, y + h / 2 - 7, z); };
+        if (style === 'cat') for (const z of [-60, 60]) hull(220, 30, 30, -2, z, 15);
+        else { hull(250, 34, 36, -4, 0, 17); for (const z of [-O, O]) hull(170, 18, 20, 2, z, 9); } });
     part({ id: 'frame', name: 'Deck frame and payload rails', group: 'Boat', color: COL.frame, nodes: ['S-3', 'T-PAY1'],
       desc: 'Aluminium cross-beams join the hulls. Two payload rails run along the deck to the same standard as G-10, so sensors and tools move between land and water robots.', ex: V(0, 20, 0) },
-      g => { const m = M(COL.frame, { metalness: .6 }); for (const x of [-90, -20, 50, 100]) box(g, 8, 6, 150, m, x, 16, 0);
-        for (const z of [-18, 18]) box(g, 210, 3, 3, M(COL.rail, { metalness: .7 }), 0, 20.5, z); });
+      g => { const m = M(COL.frame, { metalness: .6 }); for (const x of [-90, -20, 50, 100]) box(g, 8, 6, W - 10, m, x, 16, 0);
+        for (const z of [-18, 18]) box(g, 210, 3, 3, M(COL.rail, { metalness: .7 }), 0, 20.5, z + (style === 'cat' ? 0 : 0)); });
     part({ id: 'solar', name: 'Solar deck', group: 'Boat', color: COL.solar, nodes: ['R-PWR2', 'S-3'],
-      desc: 'About 2 m² of marine solar panels, around 400 W in full sun. Enough to cruise slowly all day and bank charge for the night.', ex: V(0, 45, 0) },
-      g => { H.solarA = box(g, 100, 3, 140, M(COL.solar, { roughness: .3, metalness: .4 }), -50, 24, 0); H.solarB = box(g, 70, 3, 140, M(COL.solar, { roughness: .3, metalness: .4 }), 45, 24, 0);
-        for (let i = 0; i < 6; i++) { box(g, .6, 3.2, 140, M(0x9aa4ad), -95 + i * 18, 24, 0); } });
-    part({ id: 'batteries', name: 'Batteries (one per hull)', group: 'Boat', color: COL.bat, nodes: ['R-PWR1'],
-      desc: 'A sealed battery low in each hull keeps the weight down and the boat stable. Enough for a night of slow running or a few hours at full speed.', ex: V(0, 0, 90) },
-      g => { for (const z of [-60, 60]) box(g, 70, 14, 18, M(COL.bat), -10, -4, z); });
+      desc: `Marine solar panels across the deck, about ${SZ().solar >= 1000 ? SZ().solar / 1000 + ' kW' : SZ().solar + ' W'} in full sun at this size. Enough to cruise slowly all day and bank charge for the night.`, ex: V(0, 45, 0) },
+      g => { H.solarA = box(g, 100, 3, W, M(COL.solar, { roughness: .3, metalness: .4 }), -50, 24, 0); H.solarB = box(g, 70, 3, W, M(COL.solar, { roughness: .3, metalness: .4 }), 45, 24, 0);
+        for (let i = 0; i < 6; i++) box(g, .6, 3.2, W, M(0x9aa4ad), -95 + i * 18, 24, 0); });
+    part({ id: 'batteries', name: style === 'cat' ? 'Batteries (one per hull)' : 'Batteries (centre hull)', group: 'Boat', color: COL.bat, nodes: ['R-PWR1'],
+      desc: 'Sealed batteries low in the hull keep the weight down and the boat stable. Enough for a night of slow running or a few hours at full speed.', ex: V(0, 0, 90) },
+      g => { if (style === 'cat') for (const z of [-60, 60]) box(g, 70, 14, 18, M(COL.bat), -10, -4, z); else for (const x of [-50, 30]) box(g, 60, 16, 22, M(COL.bat), x, -6, 0); });
     part({ id: 'thrusters', name: 'Electric thrusters', group: 'Boat', color: COL.motor, nodes: ['S-3', 'R-CTL2'],
-      desc: 'One sealed brushless thruster under each hull. Steering is by running them at different speeds, so there is no rudder to foul on weed or rope.', ex: V(-40, -20, 0) },
-      g => { for (const z of [-60, 60]) { box(g, 6, 18, 4, M(COL.motor), -100, -25, z); cylX(g, 6, 22, M(COL.motor, { metalness: .5 }), -102, -34, z, 20);
-        const pr = new THREE.Group(); pr.position.set(-115, -34, z); g.add(pr); for (let i = 0; i < 3; i++) { const b = box(pr, 1, 14, 4, M(COL.yellow), 0, 0, 0); b.rotation.x = i * Math.PI / 1.5; b.geometry.translate(0, 6, 0); } spinners.push(pr); } });
+      desc: style === 'sail' ? 'Two sealed thrusters for harbours, calm days and holding station. Under sail they fold their blades and the boat steers by the wing and a small rudder.'
+        : 'One sealed brushless thruster on each outer hull. Steering is by running them at different speeds, so there is no rudder to foul on weed or rope.', ex: V(-40, -20, 0) },
+      g => { const y = style === 'cat' ? -25 : -14, x0 = style === 'cat' ? -100 : -75;
+        for (const z of [-O, O]) { box(g, 6, 18, 4, M(COL.motor), x0, y + 9, z); cylX(g, 6, 22, M(COL.motor, { metalness: .5 }), x0 - 2, y, z, 20);
+          const pr = new THREE.Group(); pr.position.set(x0 - 15, y, z); g.add(pr); for (let i = 0; i < 3; i++) { const b = box(pr, 1, 14, 4, M(COL.yellow), 0, 0, 0); b.rotation.x = i * Math.PI / 1.5; b.geometry.translate(0, 6, 0); } spinners.push(pr); }
+        if (style === 'sail') box(g, 22, 30, 2, M(COL.motor), -135, -20, 0); });
     part({ id: 'mast', name: 'Mast: GNSS, camera, nav lights', group: 'Boat', color: COL.gnss, nodes: ['R-NAV2', 'X-1', 'T-AI1'],
       desc: 'RTK GNSS for position, a 360° camera for spotting boats, swimmers and debris, and navigation lights so it is legal and visible at night.', ex: V(20, 50, 0) },
       g => { cyl(g, 2.2, 90, M(COL.frame, { metalness: .6 }), 80, 70, 0, 12); cyl(g, 5, 2.4, M(COL.gnss), 80, 116, 0, 24); cyl(g, 5, 7, M(COL.sensor), 80, 104, 0, 20);
@@ -189,7 +227,15 @@ ul.parts .grp { margin-left: auto; font: 10.5px/1 var(--mono); color: var(--mute
     part({ id: 'estop', name: 'E-stop and fenders', group: 'Boat', color: COL.stop, nodes: ['T-SAFE1'],
       desc: 'A red stop button at the stern cuts the thrusters for anyone handling the boat, and soft fenders protect people, docks and other boats.', ex: V(-30, 30, 0) },
       g => { cyl(g, 3.2, 1.6, M(COL.yellow), -108, 27, 0); cyl(g, 2.6, 2.6, M(COL.stop, { roughness: .4 }), -108, 29, 0, 20);
-        for (const z of [-77, 77]) for (const x of [-60, 20]) box(g, 30, 8, 4, M(COL.motor, { roughness: .95 }), x, 0, z); });
+        for (const z of [-(O + 17), O + 17]) for (const x of [-60, 20]) box(g, 30, 8, 4, M(COL.motor, { roughness: .95 }), x, style === 'cat' ? 0 : 4, z); });
+    if (style === 'sail') part({ id: 'wing', name: 'Rigid wing sail', group: 'Boat', color: COL.white, nodes: ['S-3', 'R-PWR2'],
+      desc: 'A rigid wing, like an aircraft wing standing on end, with a small tail that trims it to the wind automatically. No ropes to handle, and it feathers flat in a storm.', ex: V(0, 80, 0) },
+      g => { H.wing = new THREE.Group(); H.wing.position.set(-40, 26, 0); g.add(H.wing); cyl(H.wing, 2.6, 30, M(COL.frame, { metalness: .6 }), 0, 15, 0, 12);
+        const w = box(H.wing, 44, 170, 9, M(COL.white, { roughness: .4 }), -6, 115, 0); w.geometry.translate(0, 0, 0); box(H.wing, 44, 3, 10, M(COL.stripe), -6, 200, 0);
+        box(H.wing, 3, 3, 3, M(0xffffff, { emissive: 0x666666 }), -6, 203, 0); box(H.wing, 34, 2, 2, M(COL.frame), -40, 180, 0); box(H.wing, 10, 26, 3, M(COL.white), -60, 180, 0); });
+    if (size === 'xl') part({ id: 'house', name: 'Crew-optional pilothouse', group: 'Boat', color: COL.white, nodes: ['S-6', 'O-4'],
+      desc: 'At this size the boat can carry a small cabin, so a crew can come along for long missions or it can run with nobody aboard as a mothership for drones and subs.', ex: V(0, 40, 0) },
+      g => { box(g, 34, 26, 50, M(COL.white, { roughness: .4 }), 115, 40, 30); box(g, 2, 10, 46, M(0x2a3a4a, { roughness: .1, metalness: .5 }), 132.2, 46, 30); });
   }
 
   // ---------- types ----------
@@ -201,8 +247,8 @@ ul.parts .grp { margin-left: auto; font: 10.5px/1 var(--mono); color: var(--mute
       build: () => {
         part({ id: 'sonar', name: 'Sonar transducer', group: 'Payload', color: COL.sensor, nodes: ['S-1', 'X-6'],
           desc: 'Downward and side-scan sonar under the hull. Each ping is tagged with RTK position, building a depth map of the bottom.', ex: V(0, -40, 0) },
-          g => { box(g, 20, 10, 12, M(COL.sensor), 30, -22, -60); H.ping = new THREE.Mesh(new THREE.ConeGeometry(60, 220, 32, 1, true), M(0x7fd0ff, { transparent: true, opacity: .14, side: THREE.DoubleSide, depthWrite: false }));
-            H.ping.position.set(30, -137, -60); g.add(H.ping); });
+          g => { box(g, 20, 10, 12, M(COL.sensor), 30, -22, style === 'cat' ? -60 : 0); H.ping = new THREE.Mesh(new THREE.ConeGeometry(60, 220, 32, 1, true), M(0x7fd0ff, { transparent: true, opacity: .14, side: THREE.DoubleSide, depthWrite: false }));
+            H.ping.position.set(30, -137, style === 'cat' ? -60 : 0); H.pingZ = style === 'cat' ? -60 : 0; g.add(H.ping); });
       } },
     sample: { label: 'Water sampling', node: 'S-4', nodes: ['S-4', 'S-3', 'T-PAY1'], phase: 'Lowering the probe',
       blurb: 'Stops at planned points, lowers a probe through the water column and fills sample bottles, so water quality can be tracked over a whole lake or river every week.',
@@ -210,10 +256,10 @@ ul.parts .grp { margin-left: auto; font: 10.5px/1 var(--mono); color: var(--mute
       build: () => {
         part({ id: 'winch', name: 'Winch and A-frame', group: 'Payload', color: COL.yellow, nodes: ['S-4'],
           desc: 'Small electric winch on an A-frame between the hulls, lowering the probe through a gap in the deck.', ex: V(0, 40, 0) },
-          g => { const m = M(COL.yellow); for (const z of [-20, 20]) { const l = box(g, 3, 50, 3, m, 5, 45, z); l.rotation.z = .1; } box(g, 3, 3, 44, m, 2, 70, 0); cyl(g, 7, 18, M(COL.motor), 15, 28, 0, 20).rotation.x = Math.PI / 2; });
+          g => { const m = M(COL.yellow); for (const z of [gapZ() - 20, gapZ() + 20]) { const l = box(g, 3, 50, 3, m, 5, 45, z); l.rotation.z = .1; } box(g, 3, 3, 44, m, 2, 70, gapZ()); cyl(g, 7, 18, M(COL.motor), 15, 28, 0, 20).rotation.x = Math.PI / 2; });
         part({ id: 'probe', name: 'Sensor probe and sampler', group: 'Payload', color: COL.purple, nodes: ['S-4', 'X-1'],
           desc: 'Multi-sensor probe that reads pH, oxygen, temperature and turbidity live, and a sampler that fills one bottle at each chosen depth.', ex: V(0, -30, 0) },
-          g => { H.cable = box(g, .6, 1, .6, M(COL.motor), 2, 0, 0); H.probe = new THREE.Group(); g.add(H.probe); cyl(H.probe, 5, 26, M(COL.purple), 0, 0, 0, 16); cyl(H.probe, 6, 3, M(COL.yellow), 0, -14, 0, 16); });
+          g => { H.cable = box(g, .6, 1, .6, M(COL.motor), 2, 0, gapZ()); H.probe = new THREE.Group(); g.add(H.probe); cyl(H.probe, 5, 26, M(COL.purple), 0, 0, 0, 16); cyl(H.probe, 6, 3, M(COL.yellow), 0, -14, 0, 16); });
         part({ id: 'rack', name: 'Sample bottle rack', group: 'Payload', color: COL.white, nodes: ['S-4'],
           desc: 'Cooled rack of sample bottles, each labelled with time, depth and position for the lab.', ex: V(-20, 40, 0) },
           g => { box(g, 40, 12, 30, M(0x9aa4ad), -70, 32, 0); for (let i = 0; i < 6; i++) for (let j = 0; j < 2; j++) cyl(g, 2.6, 12, M(0xe6e9ec, { transparent: true, opacity: .85 }), -85 + i * 6, 44, -6 + j * 12, 12); });
@@ -264,7 +310,7 @@ ul.parts .grp { margin-left: auto; font: 10.5px/1 var(--mono); color: var(--mute
           g => { cyl(g, 14, 24, M(COL.yellow), -20, 40, 0, 24).rotation.x = Math.PI / 2; box(g, 34, 6, 30, M(COL.frame), -20, 25, 0); });
         part({ id: 'modem', name: 'Acoustic modem', group: 'Payload', color: COL.sensor, nodes: ['U-3'],
           desc: 'Encrypted underwater acoustic modem on a pole below the hulls, for subs that are not on a tether.', ex: V(0, -40, 0) },
-          g => { cyl(g, 1.6, 50, M(COL.frame), 60, -10, 0, 10); cyl(g, 6, 14, M(COL.sensor), 60, -40, 0, 20); });
+          g => { cyl(g, 1.6, 50, M(COL.frame), 60, -10, gapZ(), 10); cyl(g, 6, 14, M(COL.sensor), 60, -40, gapZ(), 20); });
         part({ id: 'rov', name: 'Tethered ROV (U-1)', group: 'Payload', color: COL.yellow, nodes: ['U-1', 'U-5'],
           desc: 'Small open ROV built on ArduSub, with lights and a camera. It inspects hulls, docks, pipes and the bottom.', ex: V(0, 0, 0) },
           g => { H.rov = new THREE.Group(); g.add(H.rov); box(H.rov, 36, 18, 26, M(COL.yellow), 0, 0, 0); box(H.rov, 38, 4, 28, M(COL.motor), 0, 10, 0);
@@ -276,13 +322,36 @@ ul.parts .grp { margin-left: auto; font: 10.5px/1 var(--mono); color: var(--mute
 
   // ---------- switching ----------
   let cur = 'survey', explode = 0, selected = null;
+  const allowed = k => !(k === 'cleanup' && style !== 'cat') && !((k === 'carrier' || k === 'gateway') && size === 'small');
+  const mkBtns = (id, obj, on) => { const el = document.getElementById(id); Object.entries(obj).forEach(([k, t]) => { const b = document.createElement('button'); b.dataset.k = k; b.textContent = t.label; b.addEventListener('click', () => on(k)); el.appendChild(b); }); return el; };
+  const styleBtns = mkBtns('styles', STYLES, k => { style = k; setType(cur); });
+  const sizeBtns = mkBtns('sizes', SIZES, k => { size = k; setType(cur); });
+  sizeBtns.querySelectorAll('button').forEach(b => b.innerHTML = `${SIZES[b.dataset.k].label}<small>${SIZES[b.dataset.k].len}</small>`);
+  function updateButtons() {
+    styleBtns.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.k === style));
+    sizeBtns.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.k === size));
+    typeBtns.querySelectorAll('button').forEach(b => { const ok = allowed(b.dataset.k); b.disabled = !ok;
+      b.title = ok ? '' : (b.dataset.k === 'cleanup' ? 'The bow conveyor needs the open space between two hulls' : 'Too small to carry this payload'); });
+  }
+  // a pier and a person for scale
+  const pier = new THREE.Group(); scene.add(pier);
+  box(pier, 700, 10, 90, M(0x8a6f4f, { roughness: .9 }), 0, 30, 0); for (const x of [-320, -160, 0, 160, 320]) for (const z of [-40, 40]) cyl(pier, 5, 300, M(0x6b543a), x, -120, z, 8);
+  const person = new THREE.Group(); person.position.set(60, 35, 0); pier.add(person);
+  for (const z of [-7, 7]) box(person, 10, 82, 10, M(0x2f3e55), 0, 41, z); box(person, 16, 62, 30, M(COL.stripe), 0, 113, 0); cyl(person, 10, 22, M(0xc8a27c), 0, 156, 0, 16);
+  for (const z of [-19, 19]) box(person, 8, 58, 8, M(COL.stripe), 0, 112, z);
   const typeBtns = document.getElementById('types');
   Object.entries(types).forEach(([k, t]) => { const b = document.createElement('button'); b.dataset.k = k; b.innerHTML = `${t.label}<small>${t.node}</small>`; b.addEventListener('click', () => setType(k)); typeBtns.appendChild(b); });
   function setType(k) {
+    if (!allowed(k)) k = 'survey';
     cur = k; parts.forEach(p => p.obj.parent && p.obj.parent.remove(p.obj)); parts = []; spinners.length = 0; debris.length = 0;
     Object.keys(H).forEach(key => delete H[key]);
     baseBoat(); types[k].build();
-    document.getElementById('hudType').textContent = types[k].label;
+    const sc = SZ().s; boat.scale.setScalar(sc); parts.forEach(p => { if (p.obj.parent === scene) p.obj.scale.setScalar(sc); });
+    bed.position.y = -260 * Math.max(1, sc);
+    pier.position.z = -(outerZ() + 30) * sc - 70;
+    orbit.radius = 620 * Math.max(.55, sc); orbit.target.set(0, -20 * Math.max(.5, sc) + 20, pier.position.z / 2);
+    updateButtons();
+    document.getElementById('hudType').textContent = SZ().label + ' ' + STYLES[style].label.toLowerCase() + ' · ' + types[k].label.toLowerCase();
     document.getElementById('phase').textContent = types[k].phase;
     typeBtns.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.k === k));
     applyExplode(); select(null); renderList();
@@ -292,20 +361,21 @@ ul.parts .grp { margin-left: auto; font: 10.5px/1 var(--mono); color: var(--mute
   // ---------- motion ----------
   let clock = 0;
   function animate(dt, t) {
-    boat.position.y = 3 * Math.sin(t * .9); boat.rotation.x = .025 * Math.sin(t * 1.1); boat.rotation.z = .02 * Math.sin(t * .7 + 1);
+    const sc = SZ().s, rk = 1 / Math.sqrt(sc); boat.position.y = 3 * sc * Math.sin(t * .9); boat.rotation.x = .025 * rk * Math.sin(t * 1.1); boat.rotation.z = .02 * rk * Math.sin(t * .7 + 1);
+    if (H.wing) H.wing.rotation.y = .35 + .12 * Math.sin(t * .3);
     spinners.forEach(s => s.rotation.x += dt * 14);
     if (H.ping) { const k = (t * .8) % 1; H.ping.material.opacity = .22 * (1 - k); H.ping.scale.set(.4 + .6 * k, .4 + .6 * k, .4 + .6 * k); H.ping.position.y = -27 - 110 * (.4 + .6 * k); }
-    if (H.probe) { const d = 30 + 170 * (.5 - .5 * Math.cos(t * .35)); H.probe.position.set(2, 10 - d, 0); H.cable.scale.y = d + 55; H.cable.position.y = 66 - (d + 55) / 2;
+    if (H.probe) { const d = 30 + 170 * (.5 - .5 * Math.cos(t * .35)); H.probe.position.set(2, 10 - d, gapZ()); H.cable.scale.y = d + 55; H.cable.position.y = 66 - (d + 55) / 2;
       document.getElementById('phase').textContent = d > 190 ? 'Filling sample bottle' : 'Probe at ' + (d / 10).toFixed(1) + ' m'; }
     if (H.slats) { H.slats.forEach((s, i) => { s.position.x = -40 + ((i * 10 + t * 18) % 80); }); }
     debris.forEach(d => { const s = d.userData.seed; const k = ((t * .05 + s / 16) % 1); d.position.set(boat.position.x + 520 - 380 * k, .5, (s % 2 ? 1 : -1) * (20 + (s * 23) % 80) * (1 - k)); d.rotation.y = s + t * .3; d.visible = k < .92; });
     if (H.fill) { const f = .2 + .8 * ((t * .02) % 1); H.fill.scale.y = f; H.fill.position.y = 27 + 5 * f; }
     if (H.gim) { H.gim.rotation.x = -.75 * boat.rotation.x; H.gim.rotation.z = -.75 * boat.rotation.z; }
     if (H.rov) { const a = t * .25; const p = V(40 + 160 * Math.cos(a), -190 + 15 * Math.sin(t * .6), 140 * Math.sin(a)); H.rov.position.copy(p); H.rov.rotation.y = -a - Math.PI / 2;
-      const top = V(-20, 26 + boat.position.y, 0), mid = V((top.x + p.x) / 2, -110, (top.z + p.z) / 2);
+      const top = H.tether.parent.worldToLocal(boat.localToWorld(V(-20, 26, 0))), mid = V((top.x + p.x) / 2, -110, (top.z + p.z) / 2);
       const pts = []; for (let i = 0; i <= 20; i++) { const s = i / 20; pts.push(V((1 - s) ** 2 * top.x + 2 * (1 - s) * s * mid.x + s * s * p.x, (1 - s) ** 2 * top.y + 2 * (1 - s) * s * mid.y + s * s * (p.y + 9), (1 - s) ** 2 * top.z + 2 * (1 - s) * s * mid.z + s * s * p.z)); }
       H.tether.geometry.setFromPoints(pts); }
-    const sol = Math.round(380 + 40 * Math.sin(t * .2)); document.getElementById('sol').textContent = sol + ' W';
+    const sol = Math.round(SZ().solar * (.92 + .08 * Math.sin(t * .2))); document.getElementById('sol').textContent = sol + ' W';
   }
 
   // ---------- info ----------
@@ -317,7 +387,7 @@ ul.parts .grp { margin-left: auto; font: 10.5px/1 var(--mono); color: var(--mute
     if (p) p.obj.traverse(m => { if (m.isMesh && m.material.emissive) { if (m.userData.e0 === undefined) m.userData.e0 = m.material.emissive.getHex(); m.material.emissive.setHex(0x5a2a0a); } });
     const t = types[cur];
     info.innerHTML = p ? `<h2>${p.name}</h2><p>${p.desc}</p><div class="nodes">${p.nodes.map(n => `<span class="chip">${n}</span>`).join('')}</div>`
-      : `<h2>${t.label}</h2><p>${t.blurb}</p><div class="stats">${t.stats.map(([a, b]) => `<div><b>${a}</b>${b}</div>`).join('')}</div><div class="nodes">${t.nodes.map(n => `<span class="chip">${n}</span>`).join('')}</div>`;
+      : `<h2>${SZ().label} ${STYLES[style].label.toLowerCase()} · ${t.label.toLowerCase()}</h2><p>${t.blurb} ${STYLES[style].blurb}</p>${sizeStats()}<div class="stats">${t.stats.map(([a, b]) => `<div><b>${a}</b>${b}</div>`).join('')}</div><div class="nodes">${t.nodes.map(n => `<span class="chip">${n}</span>`).join('')}</div>`;
     document.querySelectorAll('#parts li').forEach(li => li.setAttribute('aria-selected', !!p && li.dataset.id === p.id));
   }
   const list = document.getElementById('parts');
@@ -336,7 +406,7 @@ ul.parts .grp { margin-left: auto; font: 10.5px/1 var(--mono); color: var(--mute
   const orbit = { theta: 0.9, phi: 1.15, radius: 620, target: V(0, -20, 0) };
   const ptrs = new Map(); let pinch0 = 0, moved = 0;
   const cv = renderer.domElement;
-  const clampR = r => Math.min(2500, Math.max(80, r));
+  const clampR = r => Math.min(9000, Math.max(80, r));
   cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); moved = 0;
     if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); } });
   cv.addEventListener('pointermove', e => { if (!ptrs.has(e.pointerId)) return; const p = ptrs.get(e.pointerId); const dx = e.clientX - p.x, dy = e.clientY - p.y;
