@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>S-3 Solar Boat</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: same bench layout as the other OASA viewers — 3D stage left, spec panel right; stacks on phones */
+:root {
+  --bg: #eef1f3; --panel: #ffffff; --fg: #1b232b; --muted: #5c6873; --line: #d5dce2;
+  --accent: #d2611c; --accent-soft: #fbe7da; --stage: #e3e8ec; --grid: #b9c3cb; --ok: #2f8a4f;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12171c; --panel: #192027; --fg: #e4e9ee; --muted: #93a0ac; --line: #2a343e;
+  --accent: #f08a4b; --accent-soft: #3a2518; --stage: #0f1418; --grid: #33404b; --ok: #5cc07f; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12171c; --panel: #192027; --fg: #e4e9ee; --muted: #93a0ac; --line: #2a343e;
+  --accent: #f08a4b; --accent-soft: #3a2518; --stage: #0f1418; --grid: #33404b; --ok: #5cc07f; color-scheme: dark }
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--fg); font-family: var(--display); }
+.app { display: grid; grid-template-columns: minmax(0, 1fr) 350px; gap: 16px; height: 100%;
+  padding-block: 16px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.stage { position: relative; background: var(--stage); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; min-height: 360px; touch-action: none; }
+.stage canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+.stage canvas:active { cursor: grabbing; }
+.hud { position: absolute; left: 12px; top: 12px; right: 12px; display: flex; justify-content: space-between; gap: 8px; pointer-events: none; flex-wrap: wrap; }
+.tag { font: 600 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); background: var(--panel); border: 1px solid var(--line); padding: 6px 8px; border-radius: 3px; }
+.tag b { color: var(--accent); font-weight: 600; }
+.status { position: absolute; left: 12px; bottom: 34px; display: flex; gap: 8px; align-items: center; pointer-events: none; flex-wrap: wrap; }
+.status .tag { color: var(--fg); }
+.status .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-right: 6px; vertical-align: -1px; }
+.status .dot.ok { background: var(--ok); }
+.meter { width: 70px; height: 8px; border: 1px solid var(--line); background: var(--panel); border-radius: 2px; display: inline-block; vertical-align: -1px; margin-left: 6px; overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--ok); }
+.hint { position: absolute; left: 12px; bottom: 12px; font: 11px/1.4 var(--mono); color: var(--muted); pointer-events: none; }
+.side { display: flex; flex-direction: column; gap: 14px; min-width: 0; overflow-y: auto; }
+.back { font: 600 12px/1 var(--mono); color: var(--accent); text-decoration: none; }
+.back:hover { text-decoration: underline; }
+h1 { font-size: 22px; font-weight: 800; margin: 0; letter-spacing: -.01em; text-wrap: balance; }
+.sub { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 4px 0 0; }
+.label { font: 600 10.5px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+.btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.btns button { font: 600 12.5px/1 var(--display); color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 8px 10px; cursor: pointer; }
+.btns button[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.btns button small { font: 600 10px/1 var(--mono); opacity: .65; margin-left: 4px; }
+button:focus-visible, input:focus-visible, li:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.row { display: flex; align-items: center; gap: 10px; font-size: 13px; flex-wrap: wrap; }
+.row input[type=range] { flex: 1; accent-color: var(--accent); }
+.row label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.info { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 12px 14px; }
+.info h2 { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
+.info p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.info .nodes { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { font: 600 11px/1 var(--mono); padding: 4px 6px; border-radius: 3px; background: var(--accent-soft); color: var(--accent); }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.stats div { font: 11px/1.3 var(--mono); color: var(--muted); }
+.stats b { display: block; font: 600 14px/1.2 var(--mono); color: var(--fg); font-variant-numeric: tabular-nums; }
+ul.parts { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+ul.parts li { display: flex; align-items: center; gap: 10px; padding: 8px 4px; border-bottom: 1px solid var(--line); font-size: 13px; cursor: pointer; }
+ul.parts li:hover { background: var(--panel); }
+ul.parts li[aria-selected="true"] { background: var(--accent-soft); }
+.sw { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+ul.parts .grp { margin-left: auto; font: 10.5px/1 var(--mono); color: var(--muted); }
+.note { font-size: 12px; color: var(--muted); line-height: 1.5; margin: 0; }
+@media (max-width: 760px) {
+  .app { grid-template-columns: 1fr; height: auto; }
+  .stage { height: 62vh; }
+  .side { overflow: visible; }
+}
+</style>
+
+</head>
+<body>
+<div class="app">
+  <div class="stage" id="stage">
+    <div class="hud">
+      <span class="tag">S-3 · <b id="hudType">Survey boat</b></span>
+      <span class="tag">Water see-through · concept only</span>
+    </div>
+    <div class="status"><span class="tag"><span class="dot ok"></span><span id="phase">Surveying</span></span><span class="tag">Solar <span id="sol">410 W</span> · battery <span id="pct">86%</span><span class="meter"><i id="bar" style="width:86%"></i></span></span></div>
+    <div class="hint">Drag to rotate (tilt down to look under the water) · scroll or pinch to zoom · tap a part</div>
+  </div>
+
+  <aside class="side">
+    <a class="back" href="../">← All OASA mockups</a>
+    <div>
+      <h1>S-3 solar boat</h1>
+      <p class="sub">An open solar catamaran that can stay out for days. The same hulls, solar deck, thrusters and mast carry every water robot built on it, from survey and sampling to cleanup, drone carrying and a gateway for subs. Block shapes only; sizes are rough guesses.</p>
+    </div>
+
+    <div>
+      <p class="label">Boat type</p>
+      <div class="btns" id="types"></div>
+    </div>
+
+    <div>
+      <p class="label">View</p>
+      <div class="row"><label><input type="checkbox" id="run" checked> Animate</label><label><input type="checkbox" id="spin"> Turntable</label></div>
+      <div class="row" style="margin-top:10px"><span>Assembled</span><input id="explode" type="range" min="0" max="1" step="0.01" value="0" aria-label="Exploded view"><span>Exploded</span></div>
+    </div>
+
+    <div class="info" id="info"></div>
+
+    <div>
+      <p class="label">Parts</p>
+      <ul class="parts" id="parts" role="listbox" aria-label="Parts"></ul>
+    </div>
+
+    <p class="note">Every type keeps the same hulls, solar deck, thrusters, battery, mast and R-COM5 radio; only the payload changes, through the same payload rails as G-10. Node IDs match the OASA tech tree.</p>
+  </aside>
+</div>
+
+<script src="../lib/three.min.js"></script>
+<script>
+(function () {
+  const stage = document.getElementById('stage');
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  stage.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(38, 1, 1, 8000);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 0.85));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.75); sun.position.set(300, 600, 360); scene.add(sun);
+  const fill = new THREE.DirectionalLight(0xffffff, 0.3); fill.position.set(-360, 150, -300); scene.add(fill);
+  function applyTheme() { renderer.setClearColor(new THREE.Color(css('--stage'))); }
+
+  const M = (color, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color, roughness: 0.6, metalness: 0.1 }, o));
+  const COL = { hull: 0xe6e9ec, stripe: 0xd2611c, deck: 0x58656f, solar: 0x1f3557, motor: 0x262a2f, bat: 0x3c7dd9, gnss: 0xe6e9ec, radio: 0x9aa4ad,
+    five: 0xd2611c, sensor: 0x1f252b, frame: 0x8d979f, rail: 0xb0b8bf, water: 0x3f7fa8, green: 0x3d8b4f, purple: 0x8a5cc7, yellow: 0xe8b923, stop: 0xd62f2f, white: 0xe6e9ec };
+  const V = (x, y, z) => new THREE.Vector3(x, y, z);
+  const box = (g, w, h, d, mat, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); g.add(m); return m; };
+  const cyl = (g, r, h, mat, x = 0, y = 0, z = 0, seg = 24, r2) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r2 ?? r, h, seg), mat); m.position.set(x, y, z); g.add(m); return m; };
+  const cylX = (...a) => { const m = cyl(...a); m.rotation.z = Math.PI / 2; return m; };
+  let parts = [];
+  function part(spec, build, parent) {
+    const g = new THREE.Group(); build(g);
+    const p = Object.assign({ obj: g, ex: spec.ex || V(0, 0, 0) }, spec);
+    g.traverse(m => { if (m.isMesh) m.userData.part = p; });
+    (parent || boat).add(g); p.base = g.position.clone(); parts.push(p); return p;
+  }
+
+  // ---------- water ----------
+  const water = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000, 1, 1), M(COL.water, { transparent: true, opacity: .45, roughness: .15, depthWrite: false, side: THREE.DoubleSide }));
+  water.rotation.x = -Math.PI / 2; scene.add(water);
+  const bed = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), M(0x8c7a5b, { roughness: 1 })); bed.rotation.x = -Math.PI / 2; bed.position.y = -260; scene.add(bed);
+  for (let i = 0; i < 26; i++) { const r = cyl(scene, 6 + (i * 7) % 14, 8 + (i * 5) % 10, M(0x6f6450, { roughness: 1 }), -600 + (i * 211) % 1200, -256, -500 + (i * 137) % 1000, 7); r.rotation.y = i; }
+
+  // ---------- base boat (cm; +x is the bow) ----------
+  const boat = new THREE.Group(); scene.add(boat);
+  const spinners = []; // propellers
+  const H = {};
+  function baseBoat() {
+    part({ id: 'hulls', name: 'Twin hulls', group: 'Boat', color: COL.hull, nodes: ['S-3', 'S-1'],
+      desc: 'Two narrow hulls (a catamaran) are stable in chop, slip through the water on little power and leave a wide deck for solar. Each hull is sealed in sections, so one leak does not sink it.', ex: V(0, -30, 0) },
+      g => { const m = M(COL.hull, { roughness: .45 });
+        for (const z of [-60, 60]) { box(g, 220, 30, 30, m, 0, -2, z); const bow = cyl(g, 15, 40, m, 125, -2, z, 4, 1); bow.rotation.z = Math.PI / 2; bow.rotation.x = Math.PI / 4;
+          box(g, 220, 3, 31, M(COL.stripe), 0, 8, z); } });
+    part({ id: 'frame', name: 'Deck frame and payload rails', group: 'Boat', color: COL.frame, nodes: ['S-3', 'T-PAY1'],
+      desc: 'Aluminium cross-beams join the hulls. Two payload rails run along the deck to the same standard as G-10, so sensors and tools move between land and water robots.', ex: V(0, 20, 0) },
+      g => { const m = M(COL.frame, { metalness: .6 }); for (const x of [-90, -20, 50, 100]) box(g, 8, 6, 150, m, x, 16, 0);
+        for (const z of [-18, 18]) box(g, 210, 3, 3, M(COL.rail, { metalness: .7 }), 0, 20.5, z); });
+    part({ id: 'solar', name: 'Solar deck', group: 'Boat', color: COL.solar, nodes: ['R-PWR2', 'S-3'],
+      desc: 'About 2 m² of marine solar panels, around 400 W in full sun. Enough to cruise slowly all day and bank charge for the night.', ex: V(0, 45, 0) },
+      g => { H.solarA = box(g, 100, 3, 140, M(COL.solar, { roughness: .3, metalness: .4 }), -50, 24, 0); H.solarB = box(g, 70, 3, 140, M(COL.solar, { roughness: .3, metalness: .4 }), 45, 24, 0);
+        for (let i = 0; i < 6; i++) { box(g, .6, 3.2, 140, M(0x9aa4ad), -95 + i * 18, 24, 0); } });
+    part({ id: 'batteries', name: 'Batteries (one per hull)', group: 'Boat', color: COL.bat, nodes: ['R-PWR1'],
+      desc: 'A sealed battery low in each hull keeps the weight down and the boat stable. Enough for a night of slow running or a few hours at full speed.', ex: V(0, 0, 90) },
+      g => { for (const z of [-60, 60]) box(g, 70, 14, 18, M(COL.bat), -10, -4, z); });
+    part({ id: 'thrusters', name: 'Electric thrusters', group: 'Boat', color: COL.motor, nodes: ['S-3', 'R-CTL2'],
+      desc: 'One sealed brushless thruster under each hull. Steering is by running them at different speeds, so there is no rudder to foul on weed or rope.', ex: V(-40, -20, 0) },
+      g => { for (const z of [-60, 60]) { box(g, 6, 18, 4, M(COL.motor), -100, -25, z); cylX(g, 6, 22, M(COL.motor, { metalness: .5 }), -102, -34, z, 20);
+        const pr = new THREE.Group(); pr.position.set(-115, -34, z); g.add(pr); for (let i = 0; i < 3; i++) { const b = box(pr, 1, 14, 4, M(COL.yellow), 0, 0, 0); b.rotation.x = i * Math.PI / 1.5; b.geometry.translate(0, 6, 0); } spinners.push(pr); } });
+    part({ id: 'mast', name: 'Mast: GNSS, camera, nav lights', group: 'Boat', color: COL.gnss, nodes: ['R-NAV2', 'X-1', 'T-AI1'],
+      desc: 'RTK GNSS for position, a 360° camera for spotting boats, swimmers and debris, and navigation lights so it is legal and visible at night.', ex: V(20, 50, 0) },
+      g => { cyl(g, 2.2, 90, M(COL.frame, { metalness: .6 }), 80, 70, 0, 12); cyl(g, 5, 2.4, M(COL.gnss), 80, 116, 0, 24); cyl(g, 5, 7, M(COL.sensor), 80, 104, 0, 20);
+        box(g, 3, 3, 3, M(COL.stop, { emissive: 0x440000 }), 80, 92, -6); box(g, 3, 3, 3, M(COL.green, { emissive: 0x003300 }), 80, 92, 6); cyl(g, 1.6, 3, M(0xffffff, { emissive: 0x555555 }), 80, 121, 0, 10); });
+    part({ id: 'radio', name: 'R-COM5 radio and electronics box', group: 'Boat', color: COL.radio, nodes: ['R-COM5', 'R-COM2'],
+      desc: 'Sealed box with the autopilot, companion computer and the R-COM5 radio: encrypted control, live video and a mesh link back to shore or to buoy nodes.', ex: V(0, 50, -40) },
+      g => { box(g, 26, 14, 22, M(COL.radio, { metalness: .5 }), 95, 33, -45);
+        for (let i = 0; i < 3; i++) { const a = i * 2 * Math.PI / 3 + Math.PI / 6; const b = box(g, .4, 7, 1.8, M(COL.five), 95 + 4 * Math.cos(a), 44, -45 + 4 * Math.sin(a)); b.rotation.y = -a; }
+        cyl(g, .4, 30, M(COL.motor), 104, 55, -52, 8, .2); });
+    part({ id: 'estop', name: 'E-stop and fenders', group: 'Boat', color: COL.stop, nodes: ['T-SAFE1'],
+      desc: 'A red stop button at the stern cuts the thrusters for anyone handling the boat, and soft fenders protect people, docks and other boats.', ex: V(-30, 30, 0) },
+      g => { cyl(g, 3.2, 1.6, M(COL.yellow), -108, 27, 0); cyl(g, 2.6, 2.6, M(COL.stop, { roughness: .4 }), -108, 29, 0, 20);
+        for (const z of [-77, 77]) for (const x of [-60, 20]) box(g, 30, 8, 4, M(COL.motor, { roughness: .95 }), x, 0, z); });
+  }
+
+  // ---------- types ----------
+  const debris = [];
+  const types = {
+    survey: { label: 'Survey boat', node: 'S-1', nodes: ['S-1', 'S-3', 'X-6', 'R-NAV2'], phase: 'Surveying the lake bed',
+      blurb: 'Maps lakes, rivers, harbours and coasts: water depth, the shape of the bottom and the shoreline. Flies its own lines like the survey drone, but on the water.',
+      stats: [['~0.8 m/s', 'survey speed'], ['days', 'endurance (sun)'], ['±5 cm', 'depth accuracy']],
+      build: () => {
+        part({ id: 'sonar', name: 'Sonar transducer', group: 'Payload', color: COL.sensor, nodes: ['S-1', 'X-6'],
+          desc: 'Downward and side-scan sonar under the hull. Each ping is tagged with RTK position, building a depth map of the bottom.', ex: V(0, -40, 0) },
+          g => { box(g, 20, 10, 12, M(COL.sensor), 30, -22, -60); H.ping = new THREE.Mesh(new THREE.ConeGeometry(60, 220, 32, 1, true), M(0x7fd0ff, { transparent: true, opacity: .14, side: THREE.DoubleSide, depthWrite: false }));
+            H.ping.position.set(30, -137, -60); g.add(H.ping); });
+      } },
+    sample: { label: 'Water sampling', node: 'S-4', nodes: ['S-4', 'S-3', 'T-PAY1'], phase: 'Lowering the probe',
+      blurb: 'Stops at planned points, lowers a probe through the water column and fills sample bottles, so water quality can be tracked over a whole lake or river every week.',
+      stats: [['12 bottles', 'per trip'], ['to 20 m', 'probe depth'], ['pH, O₂, temp, turbidity', 'live readings']],
+      build: () => {
+        part({ id: 'winch', name: 'Winch and A-frame', group: 'Payload', color: COL.yellow, nodes: ['S-4'],
+          desc: 'Small electric winch on an A-frame between the hulls, lowering the probe through a gap in the deck.', ex: V(0, 40, 0) },
+          g => { const m = M(COL.yellow); for (const z of [-20, 20]) { const l = box(g, 3, 50, 3, m, 5, 45, z); l.rotation.z = .1; } box(g, 3, 3, 44, m, 2, 70, 0); cyl(g, 7, 18, M(COL.motor), 15, 28, 0, 20).rotation.x = Math.PI / 2; });
+        part({ id: 'probe', name: 'Sensor probe and sampler', group: 'Payload', color: COL.purple, nodes: ['S-4', 'X-1'],
+          desc: 'Multi-sensor probe that reads pH, oxygen, temperature and turbidity live, and a sampler that fills one bottle at each chosen depth.', ex: V(0, -30, 0) },
+          g => { H.cable = box(g, .6, 1, .6, M(COL.motor), 2, 0, 0); H.probe = new THREE.Group(); g.add(H.probe); cyl(H.probe, 5, 26, M(COL.purple), 0, 0, 0, 16); cyl(H.probe, 6, 3, M(COL.yellow), 0, -14, 0, 16); });
+        part({ id: 'rack', name: 'Sample bottle rack', group: 'Payload', color: COL.white, nodes: ['S-4'],
+          desc: 'Cooled rack of sample bottles, each labelled with time, depth and position for the lab.', ex: V(-20, 40, 0) },
+          g => { box(g, 40, 12, 30, M(0x9aa4ad), -70, 32, 0); for (let i = 0; i < 6; i++) for (let j = 0; j < 2; j++) cyl(g, 2.6, 12, M(0xe6e9ec, { transparent: true, opacity: .85 }), -85 + i * 6, 44, -6 + j * 12, 12); });
+      } },
+    cleanup: { label: 'Cleanup boat', node: 'S-5', nodes: ['S-5', 'T-AI1', 'M-1'], phase: 'Collecting debris',
+      blurb: 'Spots floating trash and algae with its camera, steers to it, and scoops it onto a conveyor into a basket it empties at the dock.',
+      stats: [['~80 L', 'basket'], ['1.2 m', 'intake width'], ['camera + AI', 'finds debris']],
+      build: () => {
+        part({ id: 'conveyor', name: 'Bow conveyor', group: 'Payload', color: COL.green, nodes: ['S-5'],
+          desc: 'Mesh conveyor between the bows. Water drains through, and floating debris rides up into the basket.', ex: V(40, 0, 0) },
+          g => { const c = new THREE.Group(); c.position.set(110, 6, 0); c.rotation.z = .45; g.add(c); box(c, 80, 2, 84, M(COL.green, { roughness: .9 }), 0, 0, 0);
+            H.slats = []; for (let i = 0; i < 8; i++) { const s = box(c, 2, 4, 84, M(0x2f6e3e), -40 + i * 10, 2.5, 0); H.slats.push(s); }
+            for (const z of [-44, 44]) box(c, 84, 10, 2, M(COL.frame), 0, 3, z); });
+        part({ id: 'basket', name: 'Debris basket', group: 'Payload', color: COL.frame, nodes: ['S-5'],
+          desc: 'Removable mesh basket. A fill sensor sends the boat back to the dock to empty it.', ex: V(0, 40, 0) },
+          g => { const m = M(COL.frame, { transparent: true, opacity: .55, metalness: .5 }); box(g, 50, 30, 90, m, 55, 42, 0); H.fill = box(g, 46, 10, 86, M(0x6b5a3a), 55, 32, 0); });
+        part({ id: 'booms', name: 'Guide booms', group: 'Payload', color: COL.yellow, nodes: ['S-5'],
+          desc: 'Floating arms swing out ahead of the hulls and funnel debris toward the conveyor.', ex: V(30, 0, 0) },
+          g => { for (const s of [-1, 1]) { const b = cylX(g, 4, 110, M(COL.yellow), 175, 0, s * 95, 12); b.rotation.y = s * .45; } });
+        part({ id: 'debris', name: 'Floating debris (example)', group: 'Payload', color: 0xc9a640, nodes: ['S-5'],
+          desc: 'Bottles, cans and plastic drifting toward the intake.', ex: V(0, 0, 0) },
+          g => { const cols = [0xe0e0e0, 0x3c7dd9, 0xc9a640, 0xd62f2f, 0x3d8b4f]; for (let i = 0; i < 16; i++) { const d = box(g, 6 + (i % 3) * 3, 4, 4 + (i % 2) * 4, M(cols[i % 5]), 0, 1, 0);
+            d.userData.seed = i; debris.push(d); } }, scene);
+      } },
+    carrier: { label: 'Drone carrier', node: 'S-6', nodes: ['S-6', 'T-DOCK2', 'T-DOCK3'], phase: 'Drone docked · charging',
+      blurb: 'Carries a drone out over the water, launches it, and lands it again on a pad that is stabilized against the waves, then charges it from the sun.',
+      stats: [['1 drone', 'capacity'], ['wave-predicting', 'landing'], ['solar', 'charging']],
+      build: () => {
+        H.solarB.visible = false;
+        part({ id: 'pad', name: 'Stabilized landing pad', group: 'Payload', color: COL.frame, nodes: ['T-DOCK3', 'T-DOCK1'],
+          desc: 'Gimballed pad with a marker, centering bars and charging contacts, the same OASA-DOCK parts as the field dock. The gimbal cancels most of the boat\'s roll and pitch.', ex: V(0, 50, 0) },
+          g => { H.gim = new THREE.Group(); H.gim.position.set(45, 30, 0); g.add(H.gim); cyl(g, 10, 10, M(COL.frame, { metalness: .5 }), 45, 27, 0, 20);
+            box(H.gim, 90, 3, 110, M(0x30363d), 0, 6, 0); box(H.gim, 46, .4, 46, M(0xf2f2f2), 0, 7.8, 0);
+            [[1,0,1],[0,1,0],[1,0,1]].forEach((r, i) => r.forEach((c, j) => { if (c) box(H.gim, 12, .5, 12, M(0x111111), -14 + j * 14, 8.1, -14 + i * 14); }));
+            for (const s of [-1, 1]) { box(H.gim, 3, 3, 80, M(COL.five), s * 20, 9, 0); box(H.gim, 60, 3, 3, M(COL.five), 0, 9, s * 15); }
+            const d = new THREE.Group(); d.position.y = 9; H.gim.add(d); H.drone = d;
+            box(d, 22, 7, 17, M(0x3a434c), 0, 10, 0); box(d, 14, 4, 8, M(COL.bat), -2, 15.5, 0);
+            for (let i = 0; i < 4; i++) { const a = Math.PI / 4 + i * Math.PI / 2; const arm = box(d, 28, 2, 2.6, M(0x58656f), Math.cos(a) * 19, 11, Math.sin(a) * 19); arm.rotation.y = -a;
+              cyl(d, 15, .25, M(0xaab4bd, { transparent: true, opacity: .35 }), Math.cos(a) * 33, 14, Math.sin(a) * 33, 28); }
+            for (const z of [-9, 9]) box(d, 28, 1.2, 1.2, M(COL.motor), 0, .6, z); });
+      } },
+    gateway: { label: 'Sub gateway', node: 'U-4', nodes: ['U-4', 'U-1', 'U-3', 'S-3'], phase: 'ROV inspecting the bottom',
+      blurb: 'Links a sub to the surface network. A tethered ROV (U-1) works below while the boat relays its video and control over the radio, and an acoustic modem (U-3) talks to untethered subs.',
+      stats: [['to 100 m', 'tether'], ['live HD', 'ROV video'], ['acoustic + fiber', 'links']],
+      build: () => {
+        part({ id: 'tetherwinch', name: 'Tether winch', group: 'Payload', color: COL.yellow, nodes: ['U-2', 'U-4'],
+          desc: 'Powered reel for the fiber tether that carries power down and video and data up. It pays out and reels in as the ROV moves.', ex: V(0, 40, 0) },
+          g => { cyl(g, 14, 24, M(COL.yellow), -20, 40, 0, 24).rotation.x = Math.PI / 2; box(g, 34, 6, 30, M(COL.frame), -20, 25, 0); });
+        part({ id: 'modem', name: 'Acoustic modem', group: 'Payload', color: COL.sensor, nodes: ['U-3'],
+          desc: 'Encrypted underwater acoustic modem on a pole below the hulls, for subs that are not on a tether.', ex: V(0, -40, 0) },
+          g => { cyl(g, 1.6, 50, M(COL.frame), 60, -10, 0, 10); cyl(g, 6, 14, M(COL.sensor), 60, -40, 0, 20); });
+        part({ id: 'rov', name: 'Tethered ROV (U-1)', group: 'Payload', color: COL.yellow, nodes: ['U-1', 'U-5'],
+          desc: 'Small open ROV built on ArduSub, with lights and a camera. It inspects hulls, docks, pipes and the bottom.', ex: V(0, 0, 0) },
+          g => { H.rov = new THREE.Group(); g.add(H.rov); box(H.rov, 36, 18, 26, M(COL.yellow), 0, 0, 0); box(H.rov, 38, 4, 28, M(COL.motor), 0, 10, 0);
+            for (const z of [-15, 15]) cylX(H.rov, 3, 12, M(COL.motor), -12, -2, z, 12); cylX(H.rov, 5, 4, M(0x5c8fd9, { roughness: .2 }), 19, 0, 0, 16);
+            for (const z of [-9, 9]) box(H.rov, 2, 3, 4, M(0xffffff, { emissive: 0x888866 }), 19, 5, z);
+            H.tether = new THREE.Line(new THREE.BufferGeometry().setFromPoints([V(0, 0, 0), V(0, -1, 0), V(0, -2, 0)]), new THREE.LineBasicMaterial({ color: 0xe8b923 })); g.add(H.tether); }, scene);
+      } }
+  };
+
+  // ---------- switching ----------
+  let cur = 'survey', explode = 0, selected = null;
+  const typeBtns = document.getElementById('types');
+  Object.entries(types).forEach(([k, t]) => { const b = document.createElement('button'); b.dataset.k = k; b.innerHTML = `${t.label}<small>${t.node}</small>`; b.addEventListener('click', () => setType(k)); typeBtns.appendChild(b); });
+  function setType(k) {
+    cur = k; parts.forEach(p => p.obj.parent && p.obj.parent.remove(p.obj)); parts = []; spinners.length = 0; debris.length = 0;
+    Object.keys(H).forEach(key => delete H[key]);
+    baseBoat(); types[k].build();
+    document.getElementById('hudType').textContent = types[k].label;
+    document.getElementById('phase').textContent = types[k].phase;
+    typeBtns.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.k === k));
+    applyExplode(); select(null); renderList();
+  }
+  function applyExplode() { parts.forEach(p => p.obj.position.copy(p.base).addScaledVector(p.ex, explode)); }
+
+  // ---------- motion ----------
+  let clock = 0;
+  function animate(dt, t) {
+    boat.position.y = 3 * Math.sin(t * .9); boat.rotation.x = .025 * Math.sin(t * 1.1); boat.rotation.z = .02 * Math.sin(t * .7 + 1);
+    spinners.forEach(s => s.rotation.x += dt * 14);
+    if (H.ping) { const k = (t * .8) % 1; H.ping.material.opacity = .22 * (1 - k); H.ping.scale.set(.4 + .6 * k, .4 + .6 * k, .4 + .6 * k); H.ping.position.y = -27 - 110 * (.4 + .6 * k); }
+    if (H.probe) { const d = 30 + 170 * (.5 - .5 * Math.cos(t * .35)); H.probe.position.set(2, 10 - d, 0); H.cable.scale.y = d + 55; H.cable.position.y = 66 - (d + 55) / 2;
+      document.getElementById('phase').textContent = d > 190 ? 'Filling sample bottle' : 'Probe at ' + (d / 10).toFixed(1) + ' m'; }
+    if (H.slats) { H.slats.forEach((s, i) => { s.position.x = -40 + ((i * 10 + t * 18) % 80); }); }
+    debris.forEach(d => { const s = d.userData.seed; const k = ((t * .05 + s / 16) % 1); d.position.set(boat.position.x + 520 - 380 * k, .5, (s % 2 ? 1 : -1) * (20 + (s * 23) % 80) * (1 - k)); d.rotation.y = s + t * .3; d.visible = k < .92; });
+    if (H.fill) { const f = .2 + .8 * ((t * .02) % 1); H.fill.scale.y = f; H.fill.position.y = 27 + 5 * f; }
+    if (H.gim) { H.gim.rotation.x = -.75 * boat.rotation.x; H.gim.rotation.z = -.75 * boat.rotation.z; }
+    if (H.rov) { const a = t * .25; const p = V(40 + 160 * Math.cos(a), -190 + 15 * Math.sin(t * .6), 140 * Math.sin(a)); H.rov.position.copy(p); H.rov.rotation.y = -a - Math.PI / 2;
+      const top = V(-20, 26 + boat.position.y, 0), mid = V((top.x + p.x) / 2, -110, (top.z + p.z) / 2);
+      const pts = []; for (let i = 0; i <= 20; i++) { const s = i / 20; pts.push(V((1 - s) ** 2 * top.x + 2 * (1 - s) * s * mid.x + s * s * p.x, (1 - s) ** 2 * top.y + 2 * (1 - s) * s * mid.y + s * s * (p.y + 9), (1 - s) ** 2 * top.z + 2 * (1 - s) * s * mid.z + s * s * p.z)); }
+      H.tether.geometry.setFromPoints(pts); }
+    const sol = Math.round(380 + 40 * Math.sin(t * .2)); document.getElementById('sol').textContent = sol + ' W';
+  }
+
+  // ---------- info ----------
+  const info = document.getElementById('info');
+  const hex = c => '#' + c.toString(16).padStart(6, '0');
+  function select(p) {
+    if (selected) selected.obj.traverse(m => m.isMesh && m.material.emissive && m.userData.e0 !== undefined && m.material.emissive.setHex(m.userData.e0));
+    selected = p;
+    if (p) p.obj.traverse(m => { if (m.isMesh && m.material.emissive) { if (m.userData.e0 === undefined) m.userData.e0 = m.material.emissive.getHex(); m.material.emissive.setHex(0x5a2a0a); } });
+    const t = types[cur];
+    info.innerHTML = p ? `<h2>${p.name}</h2><p>${p.desc}</p><div class="nodes">${p.nodes.map(n => `<span class="chip">${n}</span>`).join('')}</div>`
+      : `<h2>${t.label}</h2><p>${t.blurb}</p><div class="stats">${t.stats.map(([a, b]) => `<div><b>${a}</b>${b}</div>`).join('')}</div><div class="nodes">${t.nodes.map(n => `<span class="chip">${n}</span>`).join('')}</div>`;
+    document.querySelectorAll('#parts li').forEach(li => li.setAttribute('aria-selected', !!p && li.dataset.id === p.id));
+  }
+  const list = document.getElementById('parts');
+  function renderList() {
+    list.innerHTML = '';
+    parts.forEach(p => {
+      const li = document.createElement('li'); li.dataset.id = p.id; li.tabIndex = 0; li.setAttribute('role', 'option');
+      li.innerHTML = `<span class="sw" style="background:${hex(p.color)}"></span><span>${p.name}</span><span class="grp">${p.group.toLowerCase()}</span>`;
+      const go = () => select(selected === p ? null : p);
+      li.addEventListener('click', go); li.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+      list.appendChild(li);
+    });
+  }
+
+  // ---------- controls ----------
+  const orbit = { theta: 0.9, phi: 1.15, radius: 620, target: V(0, -20, 0) };
+  const ptrs = new Map(); let pinch0 = 0, moved = 0;
+  const cv = renderer.domElement;
+  const clampR = r => Math.min(2500, Math.max(80, r));
+  cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY }); moved = 0;
+    if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); } });
+  cv.addEventListener('pointermove', e => { if (!ptrs.has(e.pointerId)) return; const p = ptrs.get(e.pointerId); const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    p.x = e.clientX; p.y = e.clientY; moved += Math.abs(dx) + Math.abs(dy);
+    if (ptrs.size === 1) { orbit.theta -= dx * 0.008; orbit.phi = Math.min(2.2, Math.max(.12, orbit.phi - dy * 0.008)); }
+    else if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y); if (pinch0) orbit.radius = clampR(orbit.radius * pinch0 / d); pinch0 = d; } });
+  cv.addEventListener('pointerup', e => { const was = ptrs.size; ptrs.delete(e.pointerId); if (was === 1 && moved < 6) pick(e); });
+  cv.addEventListener('pointercancel', e => ptrs.delete(e.pointerId));
+  cv.addEventListener('wheel', e => { e.preventDefault(); orbit.radius = clampR(orbit.radius * (1 + Math.sign(e.deltaY) * 0.08)); }, { passive: false });
+  const ray = new THREE.Raycaster();
+  function pick(e) {
+    const r = cv.getBoundingClientRect();
+    ray.setFromCamera({ x: ((e.clientX - r.left) / r.width) * 2 - 1, y: -((e.clientY - r.top) / r.height) * 2 + 1 }, camera);
+    const hit = ray.intersectObjects([boat, ...scene.children.filter(c => c !== water && c !== bed)], true).find(h => h.object.userData.part);
+    select(hit ? (selected === hit.object.userData.part ? null : hit.object.userData.part) : null);
+  }
+  document.getElementById('explode').addEventListener('input', e => { explode = +e.target.value; applyExplode(); });
+  const run = document.getElementById('run'), spin = document.getElementById('spin');
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) run.checked = false;
+
+  function resize() { const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  new ResizeObserver(resize).observe(stage);
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+  new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  applyTheme(); setType('survey'); resize();
+  let last = performance.now();
+  (function loop(now) {
+    now = now || last; const dt = Math.min(.05, (now - last) / 1000); last = now;
+    if (run.checked) { clock += dt; animate(dt, clock); }
+    if (spin.checked && !ptrs.size) orbit.theta += 0.004;
+    const { theta, phi, radius, target } = orbit;
+    camera.position.set(target.x + radius * Math.sin(phi) * Math.sin(theta), target.y + radius * Math.cos(phi), target.z + radius * Math.sin(phi) * Math.cos(theta));
+    camera.lookAt(target); renderer.render(scene, camera); requestAnimationFrame(loop);
+  })();
+})();
+</script>
+</body>
+</html>

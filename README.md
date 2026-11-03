@@ -11,6 +11,7 @@ Rough 3D concept mockups of nodes on the [OASA tech tree](https://joinoasa.org/t
 | [`g2/`](g2/) | G-2 | Legged dog and spider for extreme terrain ([IDEA #117](https://github.com/joinoasa/ideas/issues/117)) |
 | [`t-site1/`](t-site1/) | T-SITE1 | Survey drone airframes, sensors and a survey mission |
 | [`t-dock/`](t-dock/) | T-DOCK1–3 | Drone docks: field, battery swap, mobile hive and buoy |
+| [`s-3/`](s-3/) | S-3 | Solar boat and the water robots built on it (S-1, S-4, S-5, S-6, U-4) |
 
 These are block-level concepts for discussion. Shapes and sizes are guesses, not designs.
 
